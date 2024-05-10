@@ -12,7 +12,7 @@ from optimiser import Optimiser
 ## Hydraulic Analysis
 
 
-HXchanger = Heat_Exchanger(Pattern.SQUARE, 13, 9)
+HXchanger = Heat_Exchanger(Pattern.SQUARE, 13, 5)
 HXchanger.compute_effectiveness()
 
 class optimise_worker(QRunnable):
@@ -110,6 +110,6 @@ if __name__ == "__main__":
     window = MainWindow()
     app.aboutToQuit.connect(window.on_exit)
 
-    app.exec()
+    #app.exec()
 
 
