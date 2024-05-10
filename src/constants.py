@@ -1,4 +1,9 @@
 import numpy as np
+from enum import Enum
+
+class Pattern(Enum):
+    TRIANGLE = 1
+    SQUARE = 2
 
 cp = 4179 # J/kgK
 rho_w = 990.1 # kg/m3
@@ -14,13 +19,14 @@ max_HE_length = 0.35 # m
 D_shell = 0.064 # m
 D_inlet_nozzle = 0.02 # m
 D_inner_tube = 0.006 # m
+D_outer_tube = 0.008 # m
 
-c_triangle = 0.2
-c_square = 0.15
+# confusingly also referred to as c in the handout
+a_triangle = 0.02
+a_square = 0.014
 
 ## Areas of tubes
-
 A_tube = np.pi * D_inner_tube ** 2 / 4
 A_nozzle = np.pi * D_inlet_nozzle ** 2 / 4
-# wrong!: A_shell = np.pi * D_shell ** 2 / 4
-
+A_shell = np.pi * D_shell ** 2 / 4
+# A shell is variable
