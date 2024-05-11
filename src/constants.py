@@ -5,6 +5,10 @@ class Pattern(Enum):
     TRIANGLE = 1
     SQUARE = 2
 
+class Direction(Enum):
+    COUNTERFLOW = 1
+    COFLOW = 2
+
 cp = 4179 # J/kgK
 rho_w = 990.1 # kg/m3
 k_w = 0.632 # W / mK
@@ -14,7 +18,7 @@ Pr = 4.31
 
 Moody_Transition_RE = 10e5
 max_hydraulic_iterations = 900
-
+hydraulic_error_tolerance = 1e-8
 
 cold_side_compressor_characteristic = np.array([
     [
