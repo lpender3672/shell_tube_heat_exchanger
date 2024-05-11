@@ -1,10 +1,14 @@
-from constants import *
-import numpy as np
 
+from PyQt6.QtWidgets import QWidget, QApplication
+from PyQt6.QtGui import QPainter, QPen, QBrush, QPolygon
+from PyQt6.QtCore import Qt, QPoint
+
+import numpy as np
 import matplotlib.pyplot as plt
 
 from constants import *
-from fluid_path import Entry_Constriction, Exit_Expansion, L_Bend, U_Bend, Heat_Transfer_Element
+from utils import draw_zigzag_line, draw_arrow
+from fluid_path import Entry_Constriction, Exit_Expansion, U_Bend, Heat_Transfer_Element
 
 
 def cold_mass_flow_from_dp(cold_dp):
@@ -31,11 +35,36 @@ def heat_solve_iteration(T1in, T1out, T2in, T2out):
 
 
 class Heat_Exchanger():
-    def __init__(self, cold_fluid_path, hot_fluid_path):
+    def __init__(self, cold_fluid_path, hot_fluid_path, flow_path_entries_side):
 
         self.cold_path = cold_fluid_path
         self.hot_path = hot_fluid_path
 
+        self.flow_path_entries_side = flow_path_entries_side
+
+        cold_side_bends = 0
+        hot_side_bends = 0
+        self.total_tubes = 0
+
+        for element in self.hot_path.elements:
+            if isinstance(element, Heat_Transfer_Element):
+                self.total_tubes += element.tubes
+            if isinstance(element, U_Bend):
+                hot_side_bends += 1
+        for element in self.cold_path.elements:
+            if isinstance(element, U_Bend):
+                cold_side_bends += 1
+        
+        if cold_side_bends % 2 == hot_side_bends % 2:
+            self.flow_path_exits_side = flow_path_entries_side
+        elif flow_path_entries_side == Side.SAME:
+            self.flow_path_exits_side = Side.OPPOSITE
+        else:
+            self.flow_path_exits_side = Side.SAME
+        
+        # TODO: ask if this is something that changes calculations
+        self.cold_flow_sections = cold_side_bends + 1
+        self.hot_flow_sections = hot_side_bends + 1
 
         # initial values
         self.mdot_hot = 0.3
@@ -43,10 +72,13 @@ class Heat_Exchanger():
 
         self.L_hot_tube = 0.35
 
+        # TODO: vary this with the heat transfer element pattern
         self.pitch = 0.014 # Y in handout
+
 
         self.hydraulic_iteration_count = 0
 
+        # TODO: change these to be actually correct
         self.hot_pressure_factor = 2
         self.cold_pressure_factor = 2
 
@@ -218,10 +250,6 @@ class Heat_Exchanger():
         # TODO: solve thermal equations
 
 
-    def create_diagram(self):
-        pass
-        pass
-
     def is_geometrically_feasible(self):
         # performs collision detection to see if the heat exchanger is geometrically feasible
 
@@ -229,4 +257,153 @@ class Heat_Exchanger():
         # also check length of tubes are within individual and total limits
 
         pass
+
+
+class HeatExchangerDiagram(QWidget):
+    def __init__(self, width, height):
+        super().__init__()
+        self.setGeometry(100, 100, 800, 600)
+        self.setWindowTitle('Heat Exchanger Diagram')
+
+        self.width = width
+        self.height = height
+
+        self.setMinimumWidth(width)
+        self.setMinimumHeight(height)
+    
+    def set_heat_exchanger(self, heat_exchanger):
+        self.heat_exchanger = heat_exchanger
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Calculate scaling factors based on width and height
+        scale_x = self.width / 800
+        scale_y = self.height / 600
+
+        # Draw boxes
+        painter.setBrush(QBrush(Qt.GlobalColor.white))
+        painter.setPen(QPen(Qt.GlobalColor.black, 2))
+        painter.drawRect(int(100 * scale_x), int(100 * scale_y), int(600 * scale_x), int(200 * scale_y))
+
+        painter.fillRect(int(150 * scale_x), int(100 * scale_y), int(500 * scale_x), int(200 * scale_y),
+                         QBrush(Qt.GlobalColor.blue, Qt.BrushStyle.Dense4Pattern))
+        
+        painter.fillRect(int(100 * scale_x), int(100 * scale_y), int(50 * scale_x), int(200 * scale_y),
+                         QBrush(Qt.GlobalColor.red, Qt.BrushStyle.Dense4Pattern))
+        painter.fillRect(int(650 * scale_x), int(100 * scale_y), int(50 * scale_x), int(200 * scale_y),
+                         QBrush(Qt.GlobalColor.red, Qt.BrushStyle.Dense4Pattern))
+        
+        painter.setPen(QPen(Qt.GlobalColor.black, 2))
+        painter.drawLine(int(150 * scale_x), int(100 * scale_y), int(150 * scale_x), int(300 * scale_y))
+        painter.drawLine(int(650 * scale_x), int(100 * scale_y), int(650 * scale_x), int(300 * scale_y))
+
+
+        x_per_zigzag = 30
+
+        # hot
+        x_hot_ins = [125, 675]
+        x_hot_in = x_hot_ins[0]
+        draw_arrow(painter, QPoint(int(x_hot_in * scale_x), int(50 * scale_y)), QPoint(int(x_hot_in * scale_x), int(100 * scale_y)), 10, Qt.GlobalColor.red, 2)
+
+        # cold
+        x_cold_ins = [175, 625]
+        if self.heat_exchanger.flow_path_entries_side == Side.SAME:
+            x_cold_in = x_cold_ins[0]
+        else:
+            x_cold_in = x_cold_ins[1]
+        draw_arrow(painter, QPoint(int(x_cold_in * scale_x), int(50 * scale_y)), QPoint(int(x_cold_in * scale_x), int(100 * scale_y)), 10, Qt.GlobalColor.blue, 2)
+        
+        if self.heat_exchanger.cold_flow_sections % 2 == 0:
+            x_cold_out = x_cold_in
+
+        else:
+            x_cold_out = x_cold_ins[x_cold_in == x_cold_ins[0]]
+        draw_arrow(painter, QPoint(int(x_cold_out * scale_x), int(300 * scale_y)), QPoint(int(x_cold_out * scale_x), int(350 * scale_y)), 10, Qt.GlobalColor.blue, 2)
+
+        if self.heat_exchanger.flow_path_exits_side == Side.SAME:
+            x_hot_out = x_cold_out
+        else:
+            x_hot_out = x_hot_ins[x_cold_out == x_cold_ins[0]]
+        draw_arrow(painter, QPoint(int(x_hot_out * scale_x), int(300 * scale_y)), QPoint(int(x_hot_out * scale_x), int(350 * scale_y)), 10, Qt.GlobalColor.red, 2)
+
+        
+
+        # Draw zigzag lines using the draw_zigzag_line function
+
+        cold_channel_width = 200 / self.heat_exchanger.cold_flow_sections
+        for i in range(1, self.heat_exchanger.cold_flow_sections):
+            sep_y_coord = (100 + i *cold_channel_width) * scale_y
+            sep_x1_coord = (150 + 50 * (i % 2)) * scale_x
+            sep_x2_coord = (650 - 50 * ((i+1) % 2)) * scale_x
+            painter.setPen(QPen(Qt.GlobalColor.black, 2))
+            painter.drawLine(int(sep_x1_coord), int(sep_y_coord), int(sep_x2_coord), int(sep_y_coord))
+
+        for i in range(self.heat_exchanger.cold_flow_sections):
+            cold_y_coord = (100 + cold_channel_width//2 + i * cold_channel_width) * scale_y
+            start_point1 = QPoint(int(175 * scale_x), int(cold_y_coord))
+            end_point1 = QPoint(int(625 * scale_x), int(cold_y_coord))
+
+            zigzag_width1 = int(30 / self.heat_exchanger.cold_flow_sections)
+            num_segments1 = (end_point1.x() - start_point1.x()) // x_per_zigzag
+            color1 = Qt.GlobalColor.blue
+            width1 = 2
+
+            draw_zigzag_line(painter, start_point1, end_point1, zigzag_width1, num_segments1, color1, width1)
+
+
+        hot_channel_width = 200 / self.heat_exchanger.hot_flow_sections
+        for i in range(self.heat_exchanger.hot_flow_sections):
+            y_coord = (100 + hot_channel_width//2 + i * hot_channel_width) * scale_y
+            start_point1 = QPoint(int((125) * scale_x), int(y_coord))
+            end_point1 = QPoint(int(675 * scale_x), int(y_coord))
+
+            zigzag_width1 = int(30 / self.heat_exchanger.hot_flow_sections)
+            num_segments1 = (end_point1.x() - start_point1.x()) // x_per_zigzag
+            color1 = Qt.GlobalColor.red
+            width1 = 2
+
+            draw_zigzag_line(painter, start_point1, end_point1, zigzag_width1, num_segments1, color1, width1)
+
+        # connect the zigzag lines to the hot and cold inlets
+
+        in_hot_y_connect = (100 + hot_channel_width//2) * scale_y
+        out_hot_y_connect = (300 - hot_channel_width//2) * scale_y
+        painter.setPen(QPen(Qt.GlobalColor.red, 2))
+        painter.drawLine(int(x_hot_in * scale_x), int(100 * scale_y), int(x_hot_in * scale_x), int(in_hot_y_connect))
+        painter.drawLine(int(x_hot_out * scale_x), int(300 * scale_y), int(x_hot_out * scale_x), int(out_hot_y_connect))
+
+        for i in range(self.heat_exchanger.hot_flow_sections - 1):
+            x_connect = x_hot_ins[x_hot_in == x_hot_ins[i % 2]]
+
+            y_con_1 = (100 + hot_channel_width//2 + i * hot_channel_width) * scale_y
+            y_con_2 = (100 + hot_channel_width//2 + (i+1) * hot_channel_width) * scale_y
+
+            painter.setPen(QPen(Qt.GlobalColor.red, 2))
+            painter.drawLine(int(x_connect * scale_x), int(y_con_1), int(x_connect * scale_x), int(y_con_2))
+
+        in_cold_y_connect = (100 + cold_channel_width//2) * scale_y
+        out_cold_y_connect = (300 - cold_channel_width//2) * scale_y
+        painter.setPen(QPen(Qt.GlobalColor.blue, 2))
+        painter.drawLine(int(x_cold_in * scale_x), int(100 * scale_y), int(x_cold_in * scale_x), int(in_cold_y_connect))
+        painter.drawLine(int(x_cold_out * scale_x), int(300 * scale_y), int(x_cold_out * scale_x), int(out_cold_y_connect))
+
+        for i in range(self.heat_exchanger.cold_flow_sections - 1):
+            x_connect = x_cold_ins[x_cold_in == x_cold_ins[i % 2]]
+
+            y_con_1 = (100 + cold_channel_width//2 + i * cold_channel_width) * scale_y
+            y_con_2 = (100 + cold_channel_width//2 + (i+1) * cold_channel_width) * scale_y
+
+            painter.setPen(QPen(Qt.GlobalColor.blue, 2))
+            painter.drawLine(int(x_connect * scale_x), int(y_con_1), int(x_connect * scale_x), int(y_con_2))
+
+
+
+
+
+
+
+        
+
 

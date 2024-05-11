@@ -10,8 +10,8 @@ ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 import numpy as np
 
 from constants import *
-from heat_exchanger import Heat_Exchanger
-from fluid_path import Fluid_Path, Entry_Constriction, Exit_Expansion, L_Bend, U_Bend, Heat_Transfer_Element
+from heat_exchanger import Heat_Exchanger, HeatExchangerDiagram
+from fluid_path import Fluid_Path, Entry_Constriction, Exit_Expansion, U_Bend, Heat_Transfer_Element
 from optimiser import Optimise_Worker
 
 ## Hydraulic Analysis
@@ -20,17 +20,40 @@ from optimiser import Optimise_Worker
 Hot_path = Fluid_Path(rho_w, mu, cp, k_w)
 Hot_path.add_element(Entry_Constriction())
 Hot_path.add_element(
-    Heat_Transfer_Element(13, 5, Direction.COUNTERFLOW, Pattern.SQUARE)
+    Heat_Transfer_Element(13, 5, 
+                          Direction.COUNTERFLOW,
+                          Pattern.SQUARE)
 )
 Hot_path.add_element(Exit_Expansion())
+for i in range(2):
+    Hot_path.add_element(U_Bend())
+    Hot_path.add_element(Entry_Constriction())
+    Hot_path.add_element(
+        Heat_Transfer_Element(13, 5, 
+                            Direction.COUNTERFLOW,
+                            Pattern.SQUARE)
+    )
+    Hot_path.add_element(Exit_Expansion())
 
 Cold_path = Fluid_Path(rho_w, mu, cp, k_w)
 
 Cold_path.add_element(
-    Heat_Transfer_Element(13, 5, Direction.COUNTERFLOW, Pattern.SQUARE)
+    Heat_Transfer_Element(13, 5, 
+                          flow_direction=Direction.COUNTERFLOW,
+                          tube_pattern = Pattern.SQUARE)
 )
+for i in range(2):
+    Cold_path.add_element(U_Bend())
+    Cold_path.add_element(
+        Heat_Transfer_Element(13, 5, 
+                            flow_direction=Direction.COFLOW,
+                            tube_pattern = Pattern.SQUARE)
+    )
 
-HXchanger = Heat_Exchanger(Cold_path, Hot_path)
+
+HXchanger = Heat_Exchanger(Cold_path, Hot_path, 
+                           flow_path_entries_side = Side.OPPOSITE)
+
 HXchanger.compute_effectiveness(1,2)
 
 
@@ -45,10 +68,10 @@ class MainWindow(QMainWindow):
         if self.icon: # check if file found
             self.setWindowIcon(self.icon)
 
-        layout = QtWidgets.QVBoxLayout()
+        layout = QtWidgets.QGridLayout()
 
-        label = QLabel("Optimise Heat Exchanger")
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        optimise_label = QLabel("Optimise Heat Exchanger")
+        optimise_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
 
         self.start_optimise_button = QPushButton("Run Optimisation")
@@ -62,15 +85,27 @@ class MainWindow(QMainWindow):
 
         self.list_widget = QListWidget()
 
+        self.HE_diagram = HeatExchangerDiagram(800, 400)
+        self.HE_diagram.set_heat_exchanger(HXchanger)
+
+
         # make list widget uneditable
         self.list_widget.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         # make list widget unselectable
         self.list_widget.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
 
-        layout.addWidget(label)
-        layout.addWidget(self.start_optimise_button)
-        layout.addWidget(self.cancel_optimise_button)
-        layout.addWidget(self.list_widget)
+        layout.addWidget(optimise_label, 0, 0, 1, 2)
+        layout.addWidget(self.start_optimise_button, 1, 0, 1, 2)
+        layout.addWidget(self.cancel_optimise_button, 2, 0, 1, 2)
+        layout.addWidget(self.list_widget, 3, 0, 1, 2)
+
+
+        diagram_label = QLabel("Heat Exchanger Diagram")
+        diagram_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(diagram_label, 0, 2, 1, 5)
+        layout.addWidget(self.HE_diagram, 1, 2, 4, 5)
+
+
 
         # set the central widget of the Window
 

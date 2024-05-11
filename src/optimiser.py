@@ -4,8 +4,7 @@ from scipy.optimize import minimize as scipy_minimize
 
 from heat_exchanger import Heat_Exchanger
 
-    def get_constraints(self):
-        pass
+
 
 
 class Optimise_Worker(QRunnable):

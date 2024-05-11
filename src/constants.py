@@ -9,6 +9,10 @@ class Direction(Enum):
     COUNTERFLOW = 1
     COFLOW = 2
 
+class Side(Enum):
+    SAME = 1
+    OPPOSITE = 2
+
 cp = 4179 # J/kgK
 rho_w = 990.1 # kg/m3
 k_w = 0.632 # W / mK

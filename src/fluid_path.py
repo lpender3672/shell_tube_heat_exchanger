@@ -26,13 +26,6 @@ class Exit_Expansion():
         Ke = 1 - 1.8 * sigma
         return Ke
 
-class L_Bend():
-    def __init__(self):
-        pass
-
-    def loss_coefficient(self, Re, sigma):
-        pass
-
 class U_Bend():
     def __init__(self):
         pass
@@ -41,12 +34,12 @@ class U_Bend():
         pass
 
 class Heat_Transfer_Element():
-    def __init__(self, tubes, baffles, direction, pattern):
+    def __init__(self, tubes, baffles, flow_direction, tube_pattern):
         
         self.tubes = tubes
         self.baffles = baffles
-        self.direction = direction
-        self.pattern = pattern
+        self.direction = flow_direction
+        self.pattern = tube_pattern
 
     def friction_coefficient(self, Re, rel_rough):
         # if Re then apply different rules
