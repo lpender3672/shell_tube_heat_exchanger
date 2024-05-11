@@ -1,39 +1,38 @@
 from PyQt6 import QtWidgets
 from PyQt6.QtWidgets import QMainWindow, QLabel, QFileDialog, QPushButton, QListWidget
 from PyQt6.QtCore import Qt, pyqtSignal, QThread, QRunnable
+from PyQt6 import QtGui
+
+import ctypes
+myappid = 'cued.lwp26.shell_and_tube_heat_exchanger.1.0.0'
+ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
 import numpy as np
 
 from constants import *
-
 from heat_exchanger import Heat_Exchanger
-from optimiser import Optimiser
+from fluid_path import Fluid_Path, Entry_Constriction, Exit_Expansion, L_Bend, U_Bend, Heat_Transfer_Element
+from optimiser import Optimise_Worker
 
 ## Hydraulic Analysis
 
 
-HXchanger = Heat_Exchanger(Pattern.SQUARE, 13, 5)
-HXchanger.compute_effectiveness()
+Hot_path = Fluid_Path(rho_w, mu, cp, k_w)
+Hot_path.add_element(Entry_Constriction())
+Hot_path.add_element(
+    Heat_Transfer_Element(13, 5, Direction.COUNTERFLOW, Pattern.SQUARE)
+)
+Hot_path.add_element(Exit_Expansion())
 
-class optimise_worker(QRunnable):
-    iteration_update = pyqtSignal(Heat_Exchanger)
-    finished = pyqtSignal(Heat_Exchanger)
+Cold_path = Fluid_Path(rho_w, mu, cp, k_w)
 
-    def __init__(self, optimiser):
-        super().__init__()
+Cold_path.add_element(
+    Heat_Transfer_Element(13, 5, Direction.COUNTERFLOW, Pattern.SQUARE)
+)
 
-        self.optimiser = optimiser
-        self.cancelled = False
+HXchanger = Heat_Exchanger(Cold_path, Hot_path)
+HXchanger.compute_effectiveness(1,2)
 
-
-    def run(self):
-        while not self.cancelled:
-            self.msleep(1)
-        # randomise input conditions
-
-
-        
-        
 
 
 class MainWindow(QMainWindow):
@@ -42,6 +41,9 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("GA3 Heat Exchanger")
+        self.icon = QtGui.QIcon("paint_icon.jpg")
+        if self.icon: # check if file found
+            self.setWindowIcon(self.icon)
 
         layout = QtWidgets.QVBoxLayout()
 
@@ -110,6 +112,6 @@ if __name__ == "__main__":
     window = MainWindow()
     app.aboutToQuit.connect(window.on_exit)
 
-    #app.exec()
+    app.exec()
 
 
