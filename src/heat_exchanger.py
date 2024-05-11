@@ -45,8 +45,10 @@ def logmeanT(T1in, T1out, T2in, T2out):
 def heat_solve_iteration(T1in, T1out, T2in, T2out):
     pass # ??
 
+
+
 class Heat_Exchanger():
-    def __init__(self, pattern, N_tubes, B_baffles):
+    def __init__(self, fluid_path, pattern, N_tubes, B_baffles):
 
         self.N_tubes = N_tubes
         self.B_baffles = B_baffles
@@ -147,7 +149,7 @@ class Heat_Exchanger():
 
         ## THERMAL ANALYSIS
         
-        F = 1
+        F = 1 # varies for different flow paths
 
         ## obtrain heat transfer coefficients
 
@@ -158,7 +160,7 @@ class Heat_Exchanger():
         elif self.pattern == Pattern.TRIANGLE:
             Nu_o = c_triangle * self.Re_shell **0.6 * Pr **0.3
 
-        
+    
         h_i = Nu_i * k_w / D_inner_tube
         h_o = Nu_o * k_w / D_outer_tube
 
@@ -170,4 +172,17 @@ class Heat_Exchanger():
         Qdot = F * H * self.N_tubes * np.pi * self.L_hot_tube
 
         print(Qdot)
+
+    def calculate_mass(self):
+        # calculates the mass of the heat exchanger
+
+        pass
+
+    def is_geometrically_feasible(self):
+        # performs collision detection to see if the heat exchanger is geometrically feasible
+
+        # check square or triangle design packing of the N_tubes in a shell for the given pitch
+        # also check length of tubes are within individual and total limits
+
+        pass
 
