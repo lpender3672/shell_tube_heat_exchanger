@@ -122,7 +122,7 @@ class MainWindow(QMainWindow):
 
 
         HXchanger = generate_heat_exchanger(1,1, 13, 9)
-        epsilon = HXchanger.compute_effectiveness(20,60)
+        epsilon = HXchanger.compute_effectiveness(20,60, method='E_NTU')
         print(epsilon)
 
         self.HE_definition.load_heat_exchanger(HXchanger)
