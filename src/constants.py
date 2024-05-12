@@ -22,6 +22,7 @@ Pr = 4.31
 
 Moody_Transition_RE = 10e5
 max_hydraulic_iterations = 900
+max_thermal_iterations = 900
 hydraulic_error_tolerance = 1e-8
 
 cold_side_compressor_characteristic = np.array([
