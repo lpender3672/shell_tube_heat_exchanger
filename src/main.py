@@ -1,6 +1,5 @@
 from PyQt6 import QtWidgets
 from PyQt6.QtWidgets import QMainWindow, QLabel, QFileDialog, QPushButton, QListWidget
-from PyQt6.QtCore import Qt, pyqtSignal, QThread, QRunnable
 from PyQt6 import QtGui
 
 import ctypes
@@ -13,7 +12,7 @@ from constants import *
 from heat_exchanger import Heat_Exchanger
 from diagram import Heat_Exchanger_Diagram, Heat_Exchanger_Definition
 from fluid_path import Fluid_Path, Entry_Constriction, Exit_Expansion, U_Bend, Heat_Transfer_Element
-from optimiser import Optimise_Worker
+from optimiser import Optimise_Widget
 
 ## Hydraulic Analysis
 
@@ -71,26 +70,16 @@ class MainWindow(QMainWindow):
 
         layout = QtWidgets.QGridLayout()
 
-        optimise_label = QLabel("Optimise Heat Exchanger")
-        optimise_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.optimise_widget = Optimise_Widget()
 
         self.HE_definition = Heat_Exchanger_Definition()        
         layout.addWidget(self.HE_definition, 0, 0, 1, 2)
 
-        self.start_optimise_button = QPushButton("Run Optimisation")
-
-        self.cancel_optimise_button = QPushButton("Cancel Optimisation")
-        self.cancel_optimise_button.setEnabled(False)
-
-        self.start_optimise_button.clicked.connect(self.start_optimiser)
-        self.cancel_optimise_button.clicked.connect(self.cancel_optimise)
         
-
-        self.list_widget = QListWidget()
-
         self.HE_diagram = Heat_Exchanger_Diagram(600, 400)
 
         self.HE_definition.HE_update_signal.connect(self.HE_diagram.set_heat_exchanger)
+        self.optimise_widget.start_optimise_button.clicked.connect(self.start_optimiser)
 
         diagram_label = QLabel("Heat Exchanger Diagram")
 
@@ -98,17 +87,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(diagram_label, 0, 2, 1, 1)
         layout.addWidget(self.HE_diagram, 1, 2, 4, 1)
 
-
-        # make list widget uneditable
-        self.list_widget.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        # make list widget unselectable
-        self.list_widget.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
-
-        layout.addWidget(optimise_label, 0, 6, 1, 2)
-        layout.addWidget(self.start_optimise_button, 1, 6, 1, 2)
-        layout.addWidget(self.cancel_optimise_button, 2, 6, 1, 2)
-        layout.addWidget(self.list_widget, 3, 6, 1, 2)
-
+        layout.addWidget(self.optimise_widget, 1, 0, 1, 2)
 
 
         # set the central widget of the Window
@@ -122,22 +101,22 @@ class MainWindow(QMainWindow):
 
 
         HXchanger = generate_heat_exchanger(1,1, 13, 9)
-        epsilon = HXchanger.compute_effectiveness(20,60)
-        print(epsilon)
+
+        self.optimise_widget.set_design_template(HXchanger)
+        self.optimise_widget.set_conditions([20,60])
+
+        
+        #epsilon = HXchanger.compute_effectiveness(20,60)
+        #print(epsilon)
 
         self.HE_definition.load_heat_exchanger(HXchanger)
     
-
     def start_optimiser(self):
         
-        self.statusBar().showMessage("Starting optimiser")
-        self.start_optimise_button.setEnabled(False)
-        self.cancel_optimise_button.setEnabled(True)
+        HE = self.HE_diagram.heat_exchanger
 
- 
-    def cancel_optimise(self):
-        self.start_optimise_button.setEnabled(True)
-        self.cancel_optimise_button.setEnabled(False)
+        
+
 
     def line_update(self, i):
         self.list_widget.setCurrentRow(i)

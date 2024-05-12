@@ -1,6 +1,9 @@
+from PyQt5.QtCore import QObject
 
 import numpy as np
 import matplotlib.pyplot as plt
+
+import copy
 
 from scipy.optimize import fsolve
 
@@ -32,6 +35,7 @@ def logmeanT(T1in, T1out, T2in, T2out):
 
 class Heat_Exchanger():
     def __init__(self, cold_fluid_path, hot_fluid_path, flow_path_entries_side):
+        super().__init__()
 
         self.cold_path = cold_fluid_path
         self.hot_path = hot_fluid_path
@@ -280,12 +284,45 @@ class Heat_Exchanger():
 
         return effectiveness
 
+    def calc_mass(self):
+        # TODO: calculate the mass of the heat exchanger
+        pass
 
     def is_geometrically_feasible(self):
+        # TODO: check if the heat exchanger is geometrically feasible
+
         # performs collision detection to see if the heat exchanger is geometrically feasible
 
         # check square or triangle design packing of the N_tubes in a shell for the given pitch
         # also check length of tubes are within individual and total limits
 
         pass
+
+    def set_geometry(self, L, pitch, tubes, baffles):
+        
+        
+        for element in self.hot_path.elements:
+            if isinstance(element, Heat_Transfer_Element):
+                element.tubes = tubes
+                element.baffles = baffles
+
+        for element in self.cold_path.elements:
+            if isinstance(element, Heat_Transfer_Element):
+                element.tubes = tubes
+                element.baffles = baffles
+
+        self.L_hot_tube = L
+        self.pitch = pitch
+    
+    def get_random_geometry_copy(self, constraints = None):
+
+        new_HE = copy.deepcopy(self)
+
+        # set random values for the geometry parameters
+        new_HE.set_geometry(np.random.uniform(0.1, max_HE_length),
+                            np.random.uniform(0.01, 0.02),
+                            np.random.randint(10, 20),
+                            np.random.randint(10, 20))
+
+        return new_HE
 
