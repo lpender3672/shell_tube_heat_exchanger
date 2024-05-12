@@ -204,6 +204,8 @@ class Heat_Exchanger():
         
         Fscale = 1 # TODO: find out what this is
 
+
+        # TODO: check that 1/H can be added up in a loop like this
         one_over_H = 0
 
         for i, element in enumerate(self.hot_path.elements):

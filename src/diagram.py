@@ -1,33 +1,182 @@
 
-from PyQt6.QtWidgets import QWidget, QApplication
+from PyQt6.QtWidgets import QWidget, QApplication, QFrame
 from PyQt6.QtGui import QPainter, QPen, QBrush, QPolygon
-from PyQt6.QtCore import Qt, QPoint
+from PyQt6.QtCore import Qt, QPoint, pyqtSignal
+from PyQt6.QtWidgets import QLineEdit, QGridLayout, QVBoxLayout, QLabel, QPushButton, QSpinBox
 
 import numpy as np
 
 from constants import *
 from utils import draw_zigzag_line, draw_arrow
-from fluid_path import Heat_Transfer_Element
+from fluid_path import Heat_Transfer_Element, Fluid_Path
+from heat_exchanger import Heat_Exchanger, Entry_Constriction, Exit_Expansion, U_Bend
 
+
+class Cycle_Button(QWidget):
+    enum_update_signal = pyqtSignal()
+    def __init__(self, label_name, enum_class):
+        super().__init__()
+        self.setGeometry(100, 100, 300, 200)  # Set the position and size of the widget
+        
+        layout = QVBoxLayout()
+        
+        self.label_name = label_name
+        self.enum_class = enum_class
+        self.current_value = list(enum_class)[0]
+        
+        self.label = QLabel(f"{self.label_name}: {self.current_value.name}")
+        layout.addWidget(self.label)
+        
+        self.button = QPushButton(f"Change {self.label_name}")
+        self.button.clicked.connect(self.change_value)
+        layout.addWidget(self.button)
+        
+        self.setLayout(layout)
+    
+    def change_value(self):
+        current_index = list(self.enum_class).index(self.current_value)
+        next_index = (current_index + 1) % len(self.enum_class)
+        self.current_value = list(self.enum_class)[next_index]
+        self.label.setText(f"{self.label_name}: {self.current_value.name}")
+
+        self.enum_update_signal.emit()
+    
+    def setCurrentValue(self, value):
+        self.current_value = value
+        self.label.setText(f"{self.label_name}: {self.current_value.name}")
+
+
+class Heat_Exchanger_Definition(QWidget):
+    HE_update_signal = pyqtSignal(Heat_Exchanger)
+
+    def __init__(self):
+        super().__init__()
+
+        layout = QGridLayout()
+
+        self.label = QLabel("Manual Heat Exchanger Definition")
+        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label.setStyleSheet("font-size: 20px;")
+
+        self.hot_stages_label = QLabel("Hot stages:")
+        self.hot_stages_input = QSpinBox()
+        self.hot_stages_input.setMinimum(1)
+
+        self.cold_stages_label = QLabel("Cold stages:")
+        self.cold_stages_input = QSpinBox()
+        self.cold_stages_input.setMinimum(1)
+
+        self.input_side = Cycle_Button("Input Side", Side)
+
+        self.baffles_label = QLabel("Number of baffles:")
+        self.baffles_input = QSpinBox()
+        self.baffles_input.setMinimum(0)
+
+        self.tubes_label = QLabel("Number of tubes:")
+        self.tubes_input = QSpinBox()
+        self.tubes_input.setMinimum(1)
+
+        layout.addWidget(self.label, 0, 0, 1, 2)
+        layout.addWidget(self.hot_stages_label, 1, 0)
+        layout.addWidget(self.hot_stages_input, 1, 1)
+        layout.addWidget(self.cold_stages_label, 2, 0)
+        layout.addWidget(self.cold_stages_input, 2, 1)
+
+        layout.addWidget(self.input_side, 3, 0)
+
+        layout.addWidget(self.baffles_label, 4, 0)
+        layout.addWidget(self.baffles_input, 4, 1)
+        layout.addWidget(self.tubes_label, 5, 0)
+        layout.addWidget(self.tubes_input, 5, 1)
+
+
+        self.setLayout(layout)
+
+        self.hot_stages_input.valueChanged.connect(self.update_heat_exchanger)
+        self.cold_stages_input.valueChanged.connect(self.update_heat_exchanger)
+        self.input_side.enum_update_signal.connect(self.update_heat_exchanger)
+        self.baffles_input.valueChanged.connect(self.update_heat_exchanger)
+        self.tubes_input.valueChanged.connect(self.update_heat_exchanger)
+
+    def load_heat_exchanger(self, heat_exchanger):
+        self.hot_stages_input.setValue(heat_exchanger.hot_flow_sections)
+        self.cold_stages_input.setValue(heat_exchanger.cold_flow_sections)
+
+        self.input_side.setCurrentValue(heat_exchanger.flow_path_entries_side)
+
+        self.baffles_input.setValue(heat_exchanger.hot_path.elements[1].baffles)
+        self.tubes_input.setValue(heat_exchanger.hot_path.elements[1].tubes)
+
+        self.HE_update_signal.emit(heat_exchanger)
+    
+    def update_heat_exchanger(self):
+
+        hot_stages = self.hot_stages_input.value()
+        cold_stages = self.cold_stages_input.value()
+
+        flow_path_entries_side = self.input_side.current_value
+        tubes = self.tubes_input.value()
+        baffles = self.baffles_input.value()
+            
+        Hot_path = Fluid_Path(rho_w, mu, cp, k_w)
+        Hot_path.add_element(Entry_Constriction())
+        Hot_path.add_element(
+            Heat_Transfer_Element(tubes, baffles, 
+                                Direction.COUNTERFLOW,
+                                Pattern.SQUARE)
+        )
+        Hot_path.add_element(Exit_Expansion())
+        for i in range(hot_stages - 1):
+            Hot_path.add_element(U_Bend())
+            Hot_path.add_element(Entry_Constriction())
+            Hot_path.add_element(
+                Heat_Transfer_Element(tubes, baffles, 
+                                    Direction.COUNTERFLOW,
+                                    Pattern.SQUARE)
+            )
+            Hot_path.add_element(Exit_Expansion())
+
+        Cold_path = Fluid_Path(rho_w, mu, cp, k_w)
+
+        Cold_path.add_element(
+            Heat_Transfer_Element(tubes, baffles, 
+                                flow_direction=Direction.COUNTERFLOW,
+                                tube_pattern = Pattern.SQUARE)
+        )
+        for i in range(cold_stages - 1):
+            Cold_path.add_element(U_Bend())
+            Cold_path.add_element(
+                Heat_Transfer_Element(tubes, baffles, 
+                                    flow_direction=Direction.COFLOW,
+                                    tube_pattern = Pattern.SQUARE)
+            )
+
+        HEchanger = Heat_Exchanger(Cold_path, Hot_path, 
+                                flow_path_entries_side)
+
+        self.HE_update_signal.emit(HEchanger)
+        
 
 class Heat_Exchanger_Diagram(QWidget):
     def __init__(self, width, height):
         super().__init__()
-        self.setGeometry(100, 100, 800, 600)
         self.setWindowTitle('Heat Exchanger Diagram')
 
         self.width = width
         self.height = height
 
-        self.setMinimumWidth(width)
-        self.setMinimumHeight(height)
-    
+        self.setGeometry(0, 0, self.width, self.height)
+
+        
     def set_heat_exchanger(self, heat_exchanger):
         self.heat_exchanger = heat_exchanger
+        self.update()
 
     def paintEvent(self, event):
+        super().paintEvent(event)
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        #painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         # Calculate scaling factors based on width and height
         scale_x = self.width / 800
@@ -64,7 +213,7 @@ class Heat_Exchanger_Diagram(QWidget):
             painter.drawLine(int(x_coord), int(100 * scale_y), int(x_coord), int(300 * scale_y))
 
 
-        x_per_zigzag = 40
+        x_per_zigzag = int(200 * self.heat_exchanger.hot_flow_sections / self.heat_exchanger.total_tubes)
 
         hot_channel_width = 200 / self.heat_exchanger.hot_flow_sections
         cold_channel_width = 200 / self.heat_exchanger.cold_flow_sections
@@ -123,8 +272,8 @@ class Heat_Exchanger_Diagram(QWidget):
             width1 = 2
 
             draw_zigzag_line(painter, start_point1, end_point1, zigzag_width1, num_segments1, color1, width1)
-            painter.drawLine(int(175 * scale_x), start_point1.y(), 200, start_point1.y())
-            painter.drawLine(int(600 * scale_x), start_point1.y(), 625, start_point1.y())
+            painter.drawLine(int(175 * scale_x), start_point1.y(), int(200 * scale_x), start_point1.y())
+            painter.drawLine(int(600 * scale_x), start_point1.y(), int(625 * scale_x), start_point1.y())
 
         for i in range(self.heat_exchanger.hot_flow_sections - 1):
             sep_y_coord = (100 + (i+1) * hot_channel_width) * scale_y
@@ -144,8 +293,8 @@ class Heat_Exchanger_Diagram(QWidget):
             width1 = 2
 
             draw_zigzag_line(painter, start_point1, end_point1, zigzag_width1, num_segments1, color1, width1)
-            painter.drawLine(int(125 * scale_x), start_point1.y(), 200, start_point1.y())
-            painter.drawLine(int(600 * scale_x), start_point1.y(), 675, start_point1.y())
+            painter.drawLine(int(125 * scale_x), start_point1.y(), int(200 * scale_x), start_point1.y())
+            painter.drawLine(int(600 * scale_x), start_point1.y(), int(675 * scale_x), start_point1.y())
 
         # connect the zigzag lines to the hot and cold inlets
 

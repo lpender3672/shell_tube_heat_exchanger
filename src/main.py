@@ -11,7 +11,7 @@ import numpy as np
 
 from constants import *
 from heat_exchanger import Heat_Exchanger
-from diagram import Heat_Exchanger_Diagram
+from diagram import Heat_Exchanger_Diagram, Heat_Exchanger_Definition
 from fluid_path import Fluid_Path, Entry_Constriction, Exit_Expansion, U_Bend, Heat_Transfer_Element
 from optimiser import Optimise_Worker
 
@@ -56,10 +56,6 @@ def generate_heat_exchanger(hot_stages = 1, cold_stages = 1, tubes = 13, baffles
 
     return HXchanger
 
-HXchanger = generate_heat_exchanger(1,1, 13, 9)
-epsilon = HXchanger.compute_effectiveness(20,60)
-
-print(epsilon)
 
 class MainWindow(QMainWindow):
 
@@ -71,11 +67,15 @@ class MainWindow(QMainWindow):
         if self.icon: # check if file found
             self.setWindowIcon(self.icon)
 
+        self.setGeometry(100, 100, 800, 800)
+
         layout = QtWidgets.QGridLayout()
 
         optimise_label = QLabel("Optimise Heat Exchanger")
         optimise_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
+        self.HE_definition = Heat_Exchanger_Definition()        
+        layout.addWidget(self.HE_definition, 0, 0, 1, 2)
 
         self.start_optimise_button = QPushButton("Run Optimisation")
 
@@ -88,8 +88,15 @@ class MainWindow(QMainWindow):
 
         self.list_widget = QListWidget()
 
-        self.HE_diagram = Heat_Exchanger_Diagram(800, 400)
-        self.HE_diagram.set_heat_exchanger(HXchanger)
+        self.HE_diagram = Heat_Exchanger_Diagram(600, 400)
+
+        self.HE_definition.HE_update_signal.connect(self.HE_diagram.set_heat_exchanger)
+
+        diagram_label = QLabel("Heat Exchanger Diagram")
+
+        self.HE_diagram.setFixedWidth(600)
+        layout.addWidget(diagram_label, 0, 2, 1, 1)
+        layout.addWidget(self.HE_diagram, 1, 2, 4, 1)
 
 
         # make list widget uneditable
@@ -97,16 +104,10 @@ class MainWindow(QMainWindow):
         # make list widget unselectable
         self.list_widget.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
 
-        layout.addWidget(optimise_label, 0, 0, 1, 2)
-        layout.addWidget(self.start_optimise_button, 1, 0, 1, 2)
-        layout.addWidget(self.cancel_optimise_button, 2, 0, 1, 2)
-        layout.addWidget(self.list_widget, 3, 0, 1, 2)
-
-
-        diagram_label = QLabel("Heat Exchanger Diagram")
-        diagram_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(diagram_label, 0, 2, 1, 5)
-        layout.addWidget(self.HE_diagram, 1, 2, 4, 5)
+        layout.addWidget(optimise_label, 0, 6, 1, 2)
+        layout.addWidget(self.start_optimise_button, 1, 6, 1, 2)
+        layout.addWidget(self.cancel_optimise_button, 2, 6, 1, 2)
+        layout.addWidget(self.list_widget, 3, 6, 1, 2)
 
 
 
@@ -118,6 +119,13 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(widget)
 
         self.show()
+
+
+        HXchanger = generate_heat_exchanger(1,1, 13, 9)
+        epsilon = HXchanger.compute_effectiveness(20,60)
+        print(epsilon)
+
+        self.HE_definition.load_heat_exchanger(HXchanger)
     
 
     def start_optimiser(self):

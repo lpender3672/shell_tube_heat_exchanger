@@ -36,8 +36,8 @@ cold_side_compressor_characteristic = np.array([
     0.3083,   
     0.2417,   
     0.1917,   
-    0.1583
-    ],[
+    0.1583],
+    [
     0.1310,
     0.2017,
     0.2750,
