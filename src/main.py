@@ -16,11 +16,11 @@ from optimiser import Optimise_Worker
 
 ## Hydraulic Analysis
 
-def generate_heat_exchanger(hot_stages = 1, cold_stages = 1):
+def generate_heat_exchanger(hot_stages = 1, cold_stages = 1, tubes = 13, baffles = 9):
     Hot_path = Fluid_Path(rho_w, mu, cp, k_w)
     Hot_path.add_element(Entry_Constriction())
     Hot_path.add_element(
-        Heat_Transfer_Element(13, 5, 
+        Heat_Transfer_Element(tubes, baffles, 
                             Direction.COUNTERFLOW,
                             Pattern.SQUARE)
     )
@@ -29,7 +29,7 @@ def generate_heat_exchanger(hot_stages = 1, cold_stages = 1):
         Hot_path.add_element(U_Bend())
         Hot_path.add_element(Entry_Constriction())
         Hot_path.add_element(
-            Heat_Transfer_Element(13, 5, 
+            Heat_Transfer_Element(tubes, baffles, 
                                 Direction.COUNTERFLOW,
                                 Pattern.SQUARE)
         )
@@ -38,26 +38,27 @@ def generate_heat_exchanger(hot_stages = 1, cold_stages = 1):
     Cold_path = Fluid_Path(rho_w, mu, cp, k_w)
 
     Cold_path.add_element(
-        Heat_Transfer_Element(13, 5, 
+        Heat_Transfer_Element(tubes, baffles, 
                             flow_direction=Direction.COUNTERFLOW,
                             tube_pattern = Pattern.SQUARE)
     )
     for i in range(cold_stages - 1):
         Cold_path.add_element(U_Bend())
         Cold_path.add_element(
-            Heat_Transfer_Element(13, 5, 
+            Heat_Transfer_Element(tubes, baffles, 
                                 flow_direction=Direction.COFLOW,
                                 tube_pattern = Pattern.SQUARE)
         )
 
     HXchanger = Heat_Exchanger(Cold_path, Hot_path, 
-                            flow_path_entries_side = Side.SAME)
+                            flow_path_entries_side = Side.OPPOSITE)
 
     return HXchanger
 
-HXchanger = generate_heat_exchanger(2,6)
-HXchanger.compute_effectiveness(1,2)
+HXchanger = generate_heat_exchanger(1,1, 13, 9)
+epsilon = HXchanger.compute_effectiveness(20,60)
 
+print(epsilon)
 
 class MainWindow(QMainWindow):
 
@@ -86,7 +87,7 @@ class MainWindow(QMainWindow):
 
         self.list_widget = QListWidget()
 
-        self.HE_diagram = HeatExchangerDiagram(800, 800)
+        self.HE_diagram = HeatExchangerDiagram(800, 400)
         self.HE_diagram.set_heat_exchanger(HXchanger)
 
 

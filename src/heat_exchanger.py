@@ -6,6 +6,8 @@ from PyQt6.QtCore import Qt, QPoint
 import numpy as np
 import matplotlib.pyplot as plt
 
+from scipy.optimize import fsolve
+
 from constants import *
 from utils import draw_zigzag_line, draw_arrow
 from fluid_path import Entry_Constriction, Exit_Expansion, U_Bend, Heat_Transfer_Element
@@ -29,8 +31,6 @@ def logmeanT(T1in, T1out, T2in, T2out):
 
     return (dt1 - dt2) / np.log(dt1 / dt2)
 
-def heat_solve_iteration(T1in, T1out, T2in, T2out):
-    pass # ??
 
 
 
@@ -79,8 +79,8 @@ class Heat_Exchanger():
         self.hydraulic_iteration_count = 0
 
         # TODO: change these to be actually correct
-        self.hot_pressure_factor = 2
-        self.cold_pressure_factor = 2
+        self.hot_pressure_factor = 1
+        self.cold_pressure_factor = 1
 
 
     def hydraulic_iteration(self):
@@ -155,9 +155,9 @@ class Heat_Exchanger():
                 v_shell = self.mdot_cold / (rho_w * A_shell_effective)
 
                 effective_d_shell = D_shell * A_shell_effective / A_shell
-                self.Re_shell = v_shell * rho_w * effective_d_shell / mu
+                Re_shell = v_shell * rho_w * effective_d_shell / mu
 
-                self.DP_cold += 4 * a_factor * self.Re_shell ** (-0.15) * element.tubes * rho_w * v_shell ** 2
+                self.DP_cold += 4 * a_factor * Re_shell ** (-0.15) * element.tubes * rho_w * v_shell ** 2
             
             # TODO: add bend elements
 
@@ -193,12 +193,6 @@ class Heat_Exchanger():
         # Variable geometry parameters
 
         ## HYDRAULIC ANALYSIS
-
-        plt.plot(cold_side_compressor_characteristic[0], cold_side_compressor_characteristic[1])
-        plt.plot(hot_side_compressor_characteristic[0], hot_side_compressor_characteristic[1])
-        plt.grid()
-        #plt.show()
-
         
         hydraulic_solution = self.hydraulic_iteration()
 
@@ -207,10 +201,12 @@ class Heat_Exchanger():
             return
         else:
             print("successfully converged!!!!")
+            print("Cold mass flow rate: ", self.mdot_cold)
+            print("Hot mass flow rate: ", self.mdot_hot)
 
         ## THERMAL ANALYSIS
         
-        F = 1 # TODO: find out what this is
+        Fscale = 1 # TODO: find out what this is
 
         one_over_H = 0
 
@@ -233,21 +229,57 @@ class Heat_Exchanger():
             else:
                 print("Error: Unknown pattern")
 
+            B_spacing = self.L_hot_tube / (element.baffles + 1)
+            A_shell_effective = (self.pitch - D_outer_tube) * B_spacing * D_shell / self.pitch
+
+            v_shell = self.mdot_cold / (rho_w * A_shell_effective)
+            effective_d_shell = D_shell * A_shell_effective / A_shell
+            Re_shell = v_shell * rho_w * effective_d_shell / mu
+
             Nu_i = 0.023 * Re_hot ** 0.8 * Pr **0.3
-            Nu_o = c_factor * self.Re_shell **0.6 * Pr **0.3
+            Nu_o = c_factor * Re_shell **0.6 * Pr **0.3
 
             h_i = Nu_i * k_w / D_inner_tube
             h_o = Nu_o * k_w / D_outer_tube
 
             A_i = np.pi * D_inner_tube * self.L_hot_tube
             A_o = np.pi * D_outer_tube * self.L_hot_tube
-            one_over_H += 1/h_i + A_i * np.log(D_outer_tube / D_inner_tube) / (2*np.pi * k_tube * self.L_hot_tube) + 1 / h_o * (A_i / A_o)
+            one_over_H += 1/h_i + A_i * np.log(D_outer_tube / D_inner_tube) / (2 * np.pi * k_tube * self.L_hot_tube) + (A_i / A_o) / h_o
 
-        H = 1 / one_over_H
 
-        print(H)
+        # TODO: check if this is correct
+        # The handout seems to do an incorrect calculation so the formula needs to be checked
+
+        Hcoeff = 1 / one_over_H
+        Area = self.total_tubes * np.pi * D_inner_tube * self.L_hot_tube
+
 
         # TODO: solve thermal equations
+
+        def heat_solve_iteration(Tout):
+            T1out, T2out = Tout # cold and hot outlet temperatures
+
+            cold_eq = self.mdot_cold * cp * (T1out - T1in) - Hcoeff * Area * Fscale * logmeanT(T1in, T1out, T2in, T2out)
+            hot_eq = self.mdot_hot * cp * (T2in - T2out) - Hcoeff * Area * Fscale * logmeanT(T1in, T1out, T2in, T2out)
+
+            return [hot_eq, cold_eq]
+        
+        try:
+            solution = fsolve(heat_solve_iteration, [2*T1in, 0.5*T2in])
+        except Exception as e:
+            print(e)
+            return
+        
+        T1out, T2out = solution
+        LMTD = logmeanT(T1in, T1out, T2in, T2out)
+        Qdot = Hcoeff * Area * Fscale * LMTD
+        effectiveness = Qdot / (self.mdot_cold * cp * (T2in - T1in))
+
+        self.LMTD = LMTD
+        self.Qdot = Qdot
+        self.effectiveness = effectiveness
+
+        return effectiveness
 
 
     def is_geometrically_feasible(self):
