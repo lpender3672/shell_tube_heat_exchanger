@@ -108,6 +108,8 @@ class MainWindow(QMainWindow):
         
         #epsilon = HXchanger.compute_effectiveness(20,60)
         #print(epsilon)
+        epsilon = HXchanger.compute_effectiveness(20,60, method='E_NTU')
+        print(epsilon)
 
         self.HE_definition.load_heat_exchanger(HXchanger)
     

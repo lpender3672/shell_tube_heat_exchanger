@@ -4,6 +4,9 @@ from PyQt6 import QtGui
 from PyQt6 import QtWidgets
 
 
+import numpy as np
+
+from scipy.optimize import NonlinearConstraint, BFGS
 from scipy.optimize import minimize as scipy_minimize
 
 from heat_exchanger import Heat_Exchanger
@@ -52,6 +55,26 @@ class Optimise_Widget(QWidget):
     def set_conditions(self, conditions):
         self.conditions = conditions
 
+    
+    def build_constraints(self, heat_exchanger):
+        
+        self.constraints = []
+    
+        # force number of tubes and baffles to take integer values
+        integer_constraints = lambda x : np.append(x[:2], np.round(x[2:], 0))
+        self.constraints.append({'type':'eq', 'fun': integer_constraints})
+
+        # require hot and cold compressor rises greater than HX pressure drops (so comp_rise - pressure_drop > 0)
+        flow_constraints = NonlinearConstraint(heat_exchanger.calc_rel_rise, [0,0], [np.inf, np.inf], jac='2-point', hess=BFGS())
+        self.constraints.append(flow_constraints)
+
+        # require mass < 1kg
+        mass_constraint = NonlinearConstraint(heat_exchanger.calc_mass, 0, 1, jac='2-point', hess=BFGS())
+        self.constraints.append(mass_constraint)
+        
+        # require length < 0.35
+
+
 
     def start_optimiser(self):
 
@@ -70,7 +93,7 @@ class Optimise_Widget(QWidget):
         self.workers = []
         for i in range(self.num_threads):
             heat_exchanger = self.template.get_random_geometry_copy()
-            worker = Optimise_Worker(heat_exchanger, self.conditions)
+            worker = Optimise_Worker(heat_exchanger, self.conditions, self.constraints)
             worker.iteration_update.connect(self.on_iteration_update)
 
             self.workers.append(worker)
@@ -115,11 +138,6 @@ class Optimise_Worker(QRunnable, QObject):
 
         # https://docs.scipy.org/doc/scipy/tutorial/optimize.html
         # 
-
-        integer_constraint = lambda x : max([x[i]-int(x[i]) for i in range(len(x))])
-
-        cons = ({'type':'eq', 'fun': integer_constraint},
-                {'type':'eq','fun': integer_constraint})
 
         res = scipy_minimize(self.objective_function, 
                        [0.1, 0.1, 10, 10], 
