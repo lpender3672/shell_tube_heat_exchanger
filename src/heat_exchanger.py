@@ -95,7 +95,7 @@ class Heat_Exchanger():
         else:
             self.flow_path_exits_side = Side.SAME
 
-        # TODO: ask if this is something that changes calculations
+
         self.cold_flow_sections = cold_side_bends + 1
         self.hot_flow_sections = hot_side_bends + 1
 
@@ -163,7 +163,9 @@ class Heat_Exchanger():
                 self.DP_hot += 0.5 * rho_w * v_hot_tube ** 2 * \
                     element.loss_coefficient(Re_hot, sigma)
 
-            # TODO: bend elements probably another loss coefficient
+            if isinstance(element, U_Bend):
+                #TODO: Add bend loss
+                self.DP_hot += 0
 
         v_hot_nozzle = mdot_hot_tube / (rho_w * A_nozzle)
         self.DP_hot += rho_w * v_hot_nozzle ** 2  # nozzle loss
@@ -172,7 +174,7 @@ class Heat_Exchanger():
 
         self.DP_cold = 0
 
-        for i, element in enumerate(self.hot_path.elements):
+        for i, element in enumerate(self.cold_path.elements):
 
             if isinstance(element, Heat_Transfer_Element):
 
@@ -195,7 +197,8 @@ class Heat_Exchanger():
                 self.DP_cold += 4 * a_factor * \
                     Re_shell ** (-0.15) * element.tubes * rho_w * v_shell ** 2
 
-            # TODO: add bend elements
+            if isinstance(element, U_Bend):
+                self.DP_cold += 0
 
         v_cold_nozzle = self.mdot_cold / (rho_w * A_nozzle)
 
@@ -221,7 +224,7 @@ class Heat_Exchanger():
 
         # THERMAL ANALYSIS
 
-        Fscale = 1  # TODO: find out what this is
+        Fscale = 1
 
         areatimesH = 0
 
@@ -230,6 +233,7 @@ class Heat_Exchanger():
                 continue
 
             # TODO: do something with element.direction
+            # to calculate Fscale
 
             mdot_hot_tube = self.mdot_hot / element.tubes
             v_hot_tube = mdot_hot_tube / (rho_w * A_tube)
@@ -268,8 +272,6 @@ class Heat_Exchanger():
 
         # TODO: check if this is correct
         # The handout seems to do an incorrect calculation so the formula needs to be checked
-
-        # TODO: solve thermal equations
 
         if (method == 'LMTD'):
             def LMTD_heat_solve_iteration(Tout):
@@ -315,7 +317,6 @@ class Heat_Exchanger():
         return effectiveness
 
     def calc_mass(self, x = None):
-        # TODO: calculate the mass of the heat exchanger
         
         baffle_area_occlusion_ratio = 0.8
 
