@@ -298,6 +298,7 @@ class Heat_Exchanger():
             Qdot = areatimesH * Fscale * LMTD
             effectiveness = Qdot / (self.mdot_cold * cp * (T2in - T1in))
 
+            self.Tout = [T1out, T2out]
             self.LMTD = LMTD
             self.Qdot = Qdot
 

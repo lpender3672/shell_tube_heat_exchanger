@@ -167,10 +167,58 @@ class Heat_Exchanger_Diagram(QWidget):
 
         self.setGeometry(0, 0, self.width, self.height)
 
+        self.cold_inlet_box = QLineEdit()
+        self.hot_inlet_box = QLineEdit()
+
+        self.cold_outlet_box = QLineEdit()
+        self.hot_outlet_box = QLineEdit()
+
+        self.cold_outlet_box.setReadOnly(True)
+        self.hot_outlet_box.setReadOnly(True)
+
+        self.cold_inlet_box.editingFinished.connect(self.recompute)
+        self.hot_inlet_box.editingFinished.connect(self.recompute)
+    
+        self.cold_inlet_box.setPlaceholderText("T1in")
+        self.hot_inlet_box.setPlaceholderText("T2in")
+        self.cold_outlet_box.setPlaceholderText("T1out")
+        self.hot_outlet_box.setPlaceholderText("T2out")
+
+        # Set up the layout
+        layout = QGridLayout()
+        layout.addWidget(self.cold_inlet_box, 0, 0)
+        layout.addWidget(self.hot_inlet_box, 0, 1)
+        layout.addWidget(self.cold_outlet_box, 1, 0)
+        layout.addWidget(self.hot_outlet_box, 1, 1)
+
+        self.setLayout(layout)
         
     def set_heat_exchanger(self, heat_exchanger):
         self.heat_exchanger = heat_exchanger
+        self.recompute()
         self.update()
+    
+    def recompute(self):
+
+        try:
+            T1in = float(self.cold_inlet_box.text())
+            T2in = float(self.hot_inlet_box.text())
+        except ValueError:
+            return
+
+        self.heat_exchanger.compute_effectiveness(
+            [T1in, T2in],
+            method='LMTD'
+        )
+
+        T1out, T2out = self.heat_exchanger.Tout
+
+        self.cold_outlet_box.setText(
+            str(np.round(T1out,2))
+            )
+        self.hot_outlet_box.setText(
+            str(np.round(T2out,2))
+            )
 
     def paintEvent(self, event):
         super().paintEvent(event)
@@ -250,6 +298,11 @@ class Heat_Exchanger_Diagram(QWidget):
             x_hot_out = x_hot_ins[x_cold_out == x_cold_ins[0]]
         draw_arrow(painter, QPoint(int(x_hot_out * scale_x), int(300 * scale_y)), QPoint(int(x_hot_out * scale_x), int(350 * scale_y)), 10, Qt.GlobalColor.red, 2)
         
+        # set positions of inlets and outlets
+        self.cold_inlet_box.setGeometry(int(x_cold_in * scale_x), int(25 * scale_y), 50, 50)
+        self.hot_inlet_box.setGeometry(int(x_hot_in * scale_x), int(25 * scale_y), 50, 50)
+        self.cold_outlet_box.setGeometry(int(x_cold_out * scale_x), int(325 * scale_y), 50, 50)
+        self.hot_outlet_box.setGeometry(int(x_hot_out * scale_x), int(325 * scale_y), 50, 50)
 
         # Draw zigzag lines using the draw_zigzag_line function
 
@@ -327,4 +380,4 @@ class Heat_Exchanger_Diagram(QWidget):
 
             painter.setPen(QPen(Qt.GlobalColor.blue, 2))
             painter.drawLine(int(x_connect * scale_x), int(y_con_1), int(x_connect * scale_x), int(y_con_2))
-        
+
