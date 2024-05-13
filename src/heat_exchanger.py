@@ -24,6 +24,17 @@ def hot_mass_flow_from_dp(hot_dp):
                      hot_side_compressor_characteristic[1],
                      hot_side_compressor_characteristic[0]) * rho_w / 1000
 
+def dp_from_cold_mass_flow(mdot_cold):
+    
+        return np.interp(mdot_cold * 1000 / rho_w,
+                        cold_side_compressor_characteristic[0],
+                        cold_side_compressor_characteristic[1]) * 1e5  # Pa
+
+def dp_from_hot_mass_flow(mdot_hot):
+        
+            return np.interp(mdot_hot * 1000 / rho_w,
+                            hot_side_compressor_characteristic[0],
+                            hot_side_compressor_characteristic[1]) * 1e5  # Pa
 
 def logmeanT(T1in, T1out, T2in, T2out):
     dt1 = (T2in - T1out)
@@ -63,6 +74,7 @@ class Heat_Exchanger():
         cold_side_bends = 0
         hot_side_bends = 0
         self.total_tubes = 0
+        self.total_baffles = 0
 
         for element in self.hot_path.elements:
             if isinstance(element, Heat_Transfer_Element):
@@ -70,6 +82,9 @@ class Heat_Exchanger():
             if isinstance(element, U_Bend):
                 hot_side_bends += 1
         for element in self.cold_path.elements:
+            if isinstance(element, Heat_Transfer_Element):
+                self.total_baffles += element.baffles
+
             if isinstance(element, U_Bend):
                 cold_side_bends += 1
 
@@ -99,7 +114,7 @@ class Heat_Exchanger():
         self.hot_pressure_factor = 1
         self.cold_pressure_factor = 1
 
-    def hydraulic_iteration(self):
+    def calc_dp(self):
 
         # HOT STREAM
 
@@ -186,6 +201,9 @@ class Heat_Exchanger():
 
         self.DP_cold += rho_w * v_cold_nozzle**2
 
+
+        return self.DP_cold, self.DP_hot
+
         # TODO: revisit this as this makes no sense
         new_mdot_hot = hot_mass_flow_from_dp(
             self.DP_hot * self.hot_pressure_factor)
@@ -211,25 +229,19 @@ class Heat_Exchanger():
             return True
         
     def calc_rel_rise(self, x):
+        self.calc_dp()
+        
+        cold_rel_dp = dp_from_cold_mass_flow(self.mdot_cold) - self.DP_cold
+        hot_rel_dp = dp_from_hot_mass_flow(self.mdot_hot) - self.DP_hot
 
-        pass
+        return cold_rel_dp, hot_rel_dp
 
+    def set_mass_flow(self, mdot):
+        self.mdot_cold, self.mdot_hot = mdot
 
-    def compute_effectiveness(self, T1in, T2in, method = "LMTD"):
+    def compute_effectiveness(self, Tin, method = "LMTD"):
 
-        # Variable geometry parameters
-
-        # HYDRAULIC ANALYSIS
-
-        hydraulic_solution = self.hydraulic_iteration()
-
-        if not hydraulic_solution:
-            print("Warning did not converge")
-            return
-        else:
-            print("successfully converged!!!!")
-            print("Cold mass flow rate: ", self.mdot_cold)
-            print("Hot mass flow rate: ", self.mdot_hot)
+        T1in, T2in = Tin
 
         # THERMAL ANALYSIS
 
@@ -325,9 +337,27 @@ class Heat_Exchanger():
 
         return effectiveness
 
-    def calc_mass(self):
+    def calc_mass(self, x):
         # TODO: calculate the mass of the heat exchanger
-        pass
+        
+        baffle_area_occlusion_ratio = 0.8
+
+        mpipes = self.total_tubes * self.L_hot_tube * rho_copper_tube
+        mshell = self.L_hot_tube * rho_acrylic_tube
+
+        m_seals = 4 * (m_nozzle + m_large_O + self.total_tubes * m_small_O)
+
+        m_baffles = baffle_area_occlusion_ratio * A_shell * rho_abs * self.total_baffles / self.cold_flow_sections
+        
+        m_caps = 2 * 0.01 * A_shell * rho_abs # TODO: check end cap mass
+
+        return (
+            mpipes +
+            mshell +
+            m_seals +
+            m_baffles +
+            m_caps
+        )
 
     def is_geometrically_feasible(self):
         # TODO: check if the heat exchanger is geometrically feasible
@@ -340,7 +370,6 @@ class Heat_Exchanger():
         pass
 
     def set_geometry(self, L, pitch, tubes, baffles):
-        
         
         for element in self.hot_path.elements:
             if isinstance(element, Heat_Transfer_Element):

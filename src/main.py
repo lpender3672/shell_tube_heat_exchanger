@@ -79,7 +79,6 @@ class MainWindow(QMainWindow):
         self.HE_diagram = Heat_Exchanger_Diagram(600, 400)
 
         self.HE_definition.HE_update_signal.connect(self.HE_diagram.set_heat_exchanger)
-        self.optimise_widget.start_optimise_button.clicked.connect(self.start_optimiser)
 
         diagram_label = QLabel("Heat Exchanger Diagram")
 
@@ -108,26 +107,21 @@ class MainWindow(QMainWindow):
         
         #epsilon = HXchanger.compute_effectiveness(20,60)
         #print(epsilon)
-        epsilon = HXchanger.compute_effectiveness(20,60, method='E_NTU')
-        print(epsilon)
+        HXchanger.set_mass_flow([0.700000015, 0.5])
+        epsilon = HXchanger.compute_effectiveness([20,60], method='LMTD')
+        print(HXchanger.Qdot)
+
+        HXchanger.set_mass_flow([0.7, 0.5])
+        epsilon = HXchanger.compute_effectiveness([20,60], method='LMTD')
+        print(HXchanger.Qdot)
 
         self.HE_definition.load_heat_exchanger(HXchanger)
-    
-    def start_optimiser(self):
         
-        HE = self.HE_diagram.heat_exchanger
-
-        
-
 
     def line_update(self, i):
         self.list_widget.setCurrentRow(i)
         # highlight current line
         self.list_widget.item(i).setSelected(True)
-
-    def on_optimising_finished(self):
-        self.start_optimise_button.setEnabled(True)
-        self.cancel_optimise_button.setEnabled(False)
 
     def on_exit(self):
         pass

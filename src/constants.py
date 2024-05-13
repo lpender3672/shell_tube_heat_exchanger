@@ -96,3 +96,12 @@ A_tube = np.pi * D_inner_tube ** 2 / 4
 A_nozzle = np.pi * D_inlet_nozzle ** 2 / 4
 A_shell = np.pi * D_shell ** 2 / 4
 # A shell is variable
+
+## Included mass of parts
+rho_copper_tube = 0.2 # kg / m
+rho_acrylic_tube = 0.65 # kg / m
+m_nozzle = 0.65
+rho_abs = 2.39 # kg / m2
+rho_resin = 1150 # kg / m3
+m_small_O = 0.0008
+m_large_O = 0.0053
