@@ -61,6 +61,15 @@ def E_NTU(NTU, C_rel, N_shell, N_tube):
         e = None
     return e
 
+def GET_F(T1in, T2in, T1out, T2out, N):
+    p = (T1out - T1in)/(T2in - T1in)
+    r = (T2in - T2out)/(T1out - T1in)
+
+    s = (r**2 + 1)**0.5 / (r-1)    
+    w = ((1-p*r)/(1 - p))**(1/N)
+    F = s*np.log(w)/np.log((1 + w - s + s*w)/(1 + w + s - s*w))
+
+    return F
 
 class Heat_Exchanger():
     def __init__(self, cold_fluid_path, hot_fluid_path, flow_path_entries_side):
