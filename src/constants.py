@@ -100,7 +100,7 @@ A_shell = np.pi * D_shell ** 2 / 4
 ## Included mass of parts
 rho_copper_tube = 0.2 # kg / m
 rho_acrylic_tube = 0.65 # kg / m
-m_nozzle = 0.65
+m_nozzle = 0.025 # kg
 rho_abs = 2.39 # kg / m2
 rho_resin = 1150 # kg / m3
 m_small_O = 0.0008

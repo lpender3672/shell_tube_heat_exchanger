@@ -67,6 +67,7 @@ class Optimise_Widget(QWidget):
         constraints = []
     
         # force number of tubes and baffles to take integer values
+        # TODO: This doesnt work, make this work
         integer_constraints = lambda x : np.append(x[:4], np.round(x[4:], 0))
         constraints.append({'type':'eq', 'fun': integer_constraints})
 
@@ -74,8 +75,8 @@ class Optimise_Widget(QWidget):
         flow_constraints = NonlinearConstraint(heat_exchanger.calc_rel_rise, [0,0], [np.inf, np.inf], jac='2-point', hess=BFGS())
         constraints.append(flow_constraints)
 
-        # require mass < 1kg
-        mass_constraint = NonlinearConstraint(heat_exchanger.calc_mass, 0, 1, jac='2-point', hess=BFGS())
+        # require mass < 1.20kg
+        mass_constraint = NonlinearConstraint(heat_exchanger.calc_mass, 0, 1.20, jac='2-point', hess=BFGS())
         constraints.append(mass_constraint)
         
         # require length < 0.35

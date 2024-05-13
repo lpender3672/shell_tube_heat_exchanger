@@ -107,7 +107,8 @@ class MainWindow(QMainWindow):
         
         #epsilon = HXchanger.compute_effectiveness(20,60)
         #print(epsilon)
-        HXchanger.set_mass_flow([0.700000015, 0.5])
+        HXchanger.set_mass_flow([0.7, 0.5])
+        print(HXchanger.calc_mass())
         epsilon = HXchanger.compute_effectiveness([20,60], method='LMTD')
         print(HXchanger.Qdot)
 

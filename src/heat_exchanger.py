@@ -201,33 +201,9 @@ class Heat_Exchanger():
 
         self.DP_cold += rho_w * v_cold_nozzle**2
 
-
         return self.DP_cold, self.DP_hot
 
-        # TODO: revisit this as this makes no sense
-        new_mdot_hot = hot_mass_flow_from_dp(
-            self.DP_hot * self.hot_pressure_factor)
-        new_mdot_cold = cold_mass_flow_from_dp(
-            self.DP_cold * self.cold_pressure_factor)
 
-        dmhot = new_mdot_hot - self.mdot_hot
-        dmcold = new_mdot_cold - self.mdot_cold
-
-        if (np.abs(dmhot) > hydraulic_error_tolerance or
-                np.abs(dmcold) > hydraulic_error_tolerance):
-
-            if self.hydraulic_iteration_count > max_hydraulic_iterations:
-                return False
-
-            self.mdot_hot = new_mdot_hot
-            self.mdot_cold = new_mdot_cold
-
-            self.hydraulic_iteration_count += 1
-            return self.hydraulic_iteration()
-
-        else:
-            return True
-        
     def calc_rel_rise(self, x):
         self.calc_dp()
         
@@ -247,8 +223,7 @@ class Heat_Exchanger():
 
         Fscale = 1  # TODO: find out what this is
 
-        # TODO: check that 1/H can be added up in a loop like this
-        one_over_H = 0
+        areatimesH = 0
 
         for i, element in enumerate(self.hot_path.elements):
             if not isinstance(element, Heat_Transfer_Element):
@@ -285,14 +260,14 @@ class Heat_Exchanger():
 
             A_i = np.pi * D_inner_tube * self.L_hot_tube
             A_o = np.pi * D_outer_tube * self.L_hot_tube
-            one_over_H += 1/h_i + A_i * np.log(D_outer_tube / D_inner_tube) / (
+            one_over_H = 1/h_i + A_i * np.log(D_outer_tube / D_inner_tube) / (
                 2 * np.pi * k_tube * self.L_hot_tube) + (A_i / A_o) / h_o
+
+            areatimesH += element.tubes * np.pi * D_inner_tube * self.L_hot_tube / one_over_H
+            
 
         # TODO: check if this is correct
         # The handout seems to do an incorrect calculation so the formula needs to be checked
-
-        Hcoeff = 1 / one_over_H
-        Area = self.total_tubes * np.pi * D_inner_tube * self.L_hot_tube
 
         # TODO: solve thermal equations
 
@@ -301,10 +276,10 @@ class Heat_Exchanger():
                 T1out, T2out = Tout  # cold and hot outlet temperatures
 
                 cold_eq = self.mdot_cold * cp * \
-                    (T1out - T1in) - Hcoeff * Area * Fscale * \
+                    (T1out - T1in) - areatimesH * Fscale * \
                     logmeanT(T1in, T1out, T2in, T2out)
                 hot_eq = self.mdot_hot * cp * \
-                    (T2in - T2out) - Hcoeff * Area * Fscale * \
+                    (T2in - T2out) - areatimesH * Fscale * \
                     logmeanT(T1in, T1out, T2in, T2out)
 
                 return [hot_eq, cold_eq]
@@ -318,13 +293,15 @@ class Heat_Exchanger():
 
             T1out, T2out = solution
             LMTD = logmeanT(T1in, T1out, T2in, T2out)
-            Qdot = Hcoeff * Area * Fscale * LMTD
+            Qdot = areatimesH * Fscale * LMTD
             effectiveness = Qdot / (self.mdot_cold * cp * (T2in - T1in))
 
             self.LMTD = LMTD
             self.Qdot = Qdot
 
         elif (method == 'E_NTU'):
+            Area = self.total_tubes * np.pi * D_inner_tube * self.L_hot_tube
+
             N_shell = self.cold_flow_sections
             N_tube = self.hot_flow_sections
             C_min = np.min([cp*self.mdot_hot, cp*self.mdot_cold])
@@ -337,7 +314,7 @@ class Heat_Exchanger():
 
         return effectiveness
 
-    def calc_mass(self, x):
+    def calc_mass(self, x = None):
         # TODO: calculate the mass of the heat exchanger
         
         baffle_area_occlusion_ratio = 0.8
