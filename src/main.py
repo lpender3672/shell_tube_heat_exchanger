@@ -104,17 +104,22 @@ class MainWindow(QMainWindow):
         self.optimise_widget.set_design_template(HXchanger)
         self.optimise_widget.set_conditions([20,60])
 
-        
-        #epsilon = HXchanger.compute_effectiveness(20,60)
-        #print(epsilon)
-        HXchanger.set_mass_flow([0.7, 0.5])
+ 
+        HXchanger.set_mass_flow([0.6, 0.5])
         print(HXchanger.calc_mass())
-        epsilon = HXchanger.compute_effectiveness([20,60], method='LMTD')
+        epsilon = HXchanger.compute_effectiveness([30,50], method='LMTD')
         print(HXchanger.Qdot)
+        print(epsilon)
 
-        HXchanger.set_mass_flow([0.7, 0.5])
-        epsilon = HXchanger.compute_effectiveness([20,60], method='LMTD')
+        print(HXchanger.DT_min/HXchanger.LMTD)
+
+        HXchanger.set_mass_flow([0.6, 0.5])
+        epsilon = HXchanger.compute_effectiveness([30,50], method='E_NTU')
         print(HXchanger.Qdot)
+        print(epsilon)
+        print(HXchanger.NTU)
+
+
 
         self.HE_definition.load_heat_exchanger(HXchanger)
         

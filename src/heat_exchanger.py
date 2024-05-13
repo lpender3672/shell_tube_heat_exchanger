@@ -62,16 +62,20 @@ def E_NTU(NTU, C_rel, N_shell, N_tube):
     return e
 
 def GET_F(T1in, T2in, T1out, T2out, N):
-    p = (T1out - T1in)/(T2in - T1in)
-    r = (T2in - T2out)/(T1out - T1in)
-    if (r != 1):
-        s = (r**2 + 1)**0.5 / (r-1)    
-        w = ((1-p*r)/(1 - p))**(1/N)
-        F = s*np.log(w)/np.log((1 + w - s + s*w)/(1 + w + s - s*w))
+    ## only for even tube passes
+    if N > 1:
+        p = (T1out - T1in)/(T2in - T1in)
+        r = (T2in - T2out)/(T1out - T1in)
+        if (r != 1):
+            s = (r**2 + 1)**0.5 / (r-1)    
+            w = ((1-p*r)/(1 - p))**(1/N)
+            F = s*np.log(w)/np.log((1 + w - s + s*w)/(1 + w + s - s*w))
 
-    elif (r == 1):
-        u = (N - N*p)/(N - N*p + p)
-        F = 2**(1/2)*((1-u)/u)*(np.log((u/(1-u) + 2**-(1/2))/((u/(1-u) - 2**-(1/2)))))**(-1)
+        elif (r == 1):
+            u = (N - N*p)/(N - N*p + p)
+            F = 2**(1/2)*((1-u)/u)*(np.log((u/(1-u) + 2**-(1/2))/((u/(1-u) - 2**-(1/2)))))**(-1)
+    elif N == 1:
+        F = 1
 
     return F
 
@@ -310,24 +314,74 @@ class Heat_Exchanger():
                 return
 
             T1out, T2out = solution
+            C_min = np.min([cp*self.mdot_hot, cp*self.mdot_cold])
             LMTD = logmeanT(T1in, T1out, T2in, T2out)
             Qdot = self.mdot_cold * cp * (T1out - T1in)
-            effectiveness = Qdot / (self.mdot_cold * cp * (T2in - T1in))
+            Qdot_max = (C_min * (T2in - T1in))
+            effectiveness = Qdot / Qdot_max
+            DT_min = np.max([(T1out - T1in), -(T2out - T2in)])
 
             self.Tout = [T1out, T2out]
             self.LMTD = LMTD
             self.Qdot = Qdot
+            self.DT_min = DT_min
 
         elif (method == 'E_NTU'):
-            Area = self.total_tubes * np.pi * D_inner_tube * self.L_hot_tube
+            
+            areatimesH = 0
+
+            for i, element in enumerate(self.hot_path.elements):
+                if not isinstance(element, Heat_Transfer_Element):
+                    continue
+
+                # TODO: do something with element.direction
+                # to calculate Fscale
+
+                mdot_hot_tube = self.mdot_hot / element.tubes
+                v_hot_tube = mdot_hot_tube / (rho_w * A_tube)
+                Re_hot = v_hot_tube * rho_w * D_inner_tube / mu
+
+                # obtain the heat transfer coefficient for the inner and outer tubes
+
+                if element.pattern == Pattern.SQUARE:
+                    c_factor = c_square
+                elif element.pattern == Pattern.TRIANGLE:
+                    c_factor = c_triangle
+                else:
+                    print("Error: Unknown pattern")
+
+                B_spacing = self.L_hot_tube / (element.baffles + 1)
+                A_shell_effective = (self.pitch - D_outer_tube) * \
+                    B_spacing * D_shell / self.pitch
+                v_shell = self.mdot_cold / (rho_w * A_shell_effective)
+                effective_d_shell = D_shell * A_shell_effective / A_shell
+                Re_shell = v_shell * rho_w * effective_d_shell / mu
+
+                Nu_i = 0.023 * Re_hot ** 0.8 * Pr ** 0.3
+                Nu_o = c_factor * Re_shell ** 0.6 * Pr ** 0.3
+
+                h_i = Nu_i * k_w / D_inner_tube
+                h_o = Nu_o * k_w / D_outer_tube
+
+                A_i = np.pi * D_inner_tube * self.L_hot_tube
+                A_o = np.pi * D_outer_tube * self.L_hot_tube
+                one_over_H = 1/h_i + A_i * np.log(D_outer_tube / D_inner_tube) / (
+                    2 * np.pi * k_tube * self.L_hot_tube) + (A_i / A_o) / h_o
+
+                areatimesH += element.tubes * np.pi * D_inner_tube * self.L_hot_tube / one_over_H
 
             N_shell = self.cold_flow_sections
             N_tube = self.hot_flow_sections
             C_min = np.min([cp*self.mdot_hot, cp*self.mdot_cold])
             C_max = np.max([cp*self.mdot_hot, cp*self.mdot_cold])
             C_rel = C_min/C_max
-            NTU = Hcoeff * Area / C_min
+            NTU = areatimesH / C_min
             effectiveness = E_NTU(NTU, C_rel, N_shell, N_tube)
+            Qdot_max = (C_min * (T2in - T1in))
+            Qdot = effectiveness*Qdot_max
+
+            self.Qdot = Qdot
+            self.NTU = NTU
 
         self.effectiveness = effectiveness
 
