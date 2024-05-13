@@ -64,10 +64,14 @@ def E_NTU(NTU, C_rel, N_shell, N_tube):
 def GET_F(T1in, T2in, T1out, T2out, N):
     p = (T1out - T1in)/(T2in - T1in)
     r = (T2in - T2out)/(T1out - T1in)
+    if (r != 1):
+        s = (r**2 + 1)**0.5 / (r-1)    
+        w = ((1-p*r)/(1 - p))**(1/N)
+        F = s*np.log(w)/np.log((1 + w - s + s*w)/(1 + w + s - s*w))
 
-    s = (r**2 + 1)**0.5 / (r-1)    
-    w = ((1-p*r)/(1 - p))**(1/N)
-    F = s*np.log(w)/np.log((1 + w - s + s*w)/(1 + w + s - s*w))
+    elif (r == 1):
+        u = (N - N*p)/(N - N*p + p)
+        F = 2**(1/2)*((1-u)/u)*(np.log((u/(1-u) + 2**-(1/2))/((u/(1-u) - 2**-(1/2)))))**(-1)
 
     return F
 
