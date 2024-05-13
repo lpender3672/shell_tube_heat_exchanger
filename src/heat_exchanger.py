@@ -65,7 +65,8 @@ def GET_F(T1in, T2in, T1out, T2out, N):
     ## only for even tube passes
     if N > 1:
         p = (T1out - T1in)/(T2in - T1in)
-        r = (T2in - T2out)/(T1out - T1in)
+        r = np.min([(T2in - T2out)/(T1out - T1in), (T2in - T2out)/(T1out - T1in)])
+        #r = (T2in - T2out)/(T1out - T1in)
         if (r != 1):
             s = (r**2 + 1)**0.5 / (r-1)    
             w = ((1-p*r)/(1 - p))**(1/N)
@@ -162,6 +163,7 @@ class Heat_Exchanger():
                 Re_hot = v_hot_tube * rho_w * D_inner_tube / mu
 
                 sigma = next_element.tubes * A_tube / A_shell
+                print(sigma)
                 self.DP_hot += 0.5 * rho_w * v_hot_tube ** 2 * \
                     element.loss_coefficient(Re_hot, sigma)
 
@@ -177,6 +179,7 @@ class Heat_Exchanger():
                 Re_hot = v_hot_tube * rho_w * D_inner_tube / mu
 
                 sigma = prev_element.tubes * A_tube / A_shell
+                print(sigma)
                 self.DP_hot += 0.5 * rho_w * v_hot_tube ** 2 * \
                     element.loss_coefficient(Re_hot, sigma)
 
@@ -289,16 +292,16 @@ class Heat_Exchanger():
                     one_over_H = 1/h_i + A_i * np.log(D_outer_tube / D_inner_tube) / (
                         2 * np.pi * k_tube * self.L_hot_tube) + (A_i / A_o) / h_o
 
-                    areatimesH += element.tubes * np.pi * D_inner_tube * self.L_hot_tube / one_over_H
+                    areatimesH += (element.tubes * np.pi * D_inner_tube * self.L_hot_tube / one_over_H) * self.cold_flow_sections
                 
                 # TODO: calculate this for various N values
                 if self.cold_flow_sections == 1:
                     Fscale = 1
-                elif self.cold_flow_sections == 2:
+                elif self.cold_flow_sections >= 2:
                     Fscale = GET_F(T1in, T2in, T1out, T2out, self.cold_flow_sections)
 
                 cold_eq = self.mdot_cold * cp * \
-                    (T1out - T1in) - areatimesH * Fscale * \
+                    (T1out - T1in) - areatimesH *  Fscale * \
                     logmeanT(T1in, T1out, T2in, T2out)
                 hot_eq = self.mdot_hot * cp * \
                     (T2in - T2out) - areatimesH * Fscale * \
@@ -312,19 +315,25 @@ class Heat_Exchanger():
             except Exception as e:
                 print(e)
                 return
-
+            
             T1out, T2out = solution
             C_min = np.min([cp*self.mdot_hot, cp*self.mdot_cold])
-            LMTD = logmeanT(T1in, T1out, T2in, T2out)
+            LMTD = logmeanT(T1in, T1out, T2in, T2out)    
             Qdot = self.mdot_cold * cp * (T1out - T1in)
             Qdot_max = (C_min * (T2in - T1in))
             effectiveness = Qdot / Qdot_max
             DT_min = np.max([(T1out - T1in), -(T2out - T2in)])
 
+            if self.cold_flow_sections == 1:
+                Fscale = 1
+            elif self.cold_flow_sections >= 2:
+                Fscale = GET_F(T1in, T2in, T1out, T2out, self.cold_flow_sections)
+
             self.Tout = [T1out, T2out]
             self.LMTD = LMTD
             self.Qdot = Qdot
             self.DT_min = DT_min
+            self.Fscale = Fscale
 
         elif (method == 'E_NTU'):
             
