@@ -1,6 +1,7 @@
 from PyQt6 import QtWidgets
 from PyQt6.QtWidgets import QMainWindow, QLabel, QFileDialog, QPushButton, QListWidget
 from PyQt6 import QtGui
+from PyQt6.QtCore import Qt
 
 import ctypes
 myappid = 'cued.lwp26.shell_and_tube_heat_exchanger.1.0.0'
@@ -15,45 +16,6 @@ from fluid_path import Fluid_Path, Entry_Constriction, Exit_Expansion, U_Bend, H
 from optimiser import Optimise_Widget
 
 ## Hydraulic Analysis
-
-def generate_heat_exchanger(hot_stages = 1, cold_stages = 1, tubes = 13, baffles = 9):
-    Hot_path = Fluid_Path(rho_w, mu, cp, k_w)
-    Hot_path.add_element(Entry_Constriction())
-    Hot_path.add_element(
-        Heat_Transfer_Element(tubes, baffles, 
-                            Direction.COUNTERFLOW,
-                            Pattern.SQUARE)
-    )
-    Hot_path.add_element(Exit_Expansion())
-    for i in range(hot_stages - 1):
-        Hot_path.add_element(U_Bend())
-        Hot_path.add_element(Entry_Constriction())
-        Hot_path.add_element(
-            Heat_Transfer_Element(tubes, baffles, 
-                                Direction.COUNTERFLOW,
-                                Pattern.SQUARE)
-        )
-        Hot_path.add_element(Exit_Expansion())
-
-    Cold_path = Fluid_Path(rho_w, mu, cp, k_w)
-
-    Cold_path.add_element(
-        Heat_Transfer_Element(tubes, baffles, 
-                            flow_direction=Direction.COUNTERFLOW,
-                            tube_pattern = Pattern.SQUARE)
-    )
-    for i in range(cold_stages - 1):
-        Cold_path.add_element(U_Bend())
-        Cold_path.add_element(
-            Heat_Transfer_Element(tubes, baffles, 
-                                flow_direction=Direction.COFLOW,
-                                tube_pattern = Pattern.SQUARE)
-        )
-
-    HXchanger = Heat_Exchanger(Cold_path, Hot_path, 
-                            flow_path_entries_side = Side.OPPOSITE)
-
-    return HXchanger
 
 
 class MainWindow(QMainWindow):
@@ -98,27 +60,27 @@ class MainWindow(QMainWindow):
 
         self.show()
 
-
-        HXchanger = generate_heat_exchanger(8,4, 13, 9)
+        HXchanger = self.HE_definition.set_heat_exchanger(1, 1, 9, 13)
 
         self.optimise_widget.set_design_template(HXchanger)
         self.optimise_widget.set_conditions([20,60])
 
  
-        HXchanger.set_mass_flow([0.59, 0.6])
+        HXchanger.mdot = [0.5, 0.6]
         print(HXchanger.calc_mass())
-        epsilon = HXchanger.compute_effectiveness([20,60], method='LMTD')
-        print(HXchanger.Qdot)
-        print(epsilon)
+        HXchanger.set_conditions([20,60])
+        success = HXchanger.compute_effectiveness(method='LMTD')
+        if success:
+            print(HXchanger.Qdot)
+            print(HXchanger.LMTD)
+            print(HXchanger.effectiveness)
 
-        print(HXchanger.DT_min/(HXchanger.cold_flow_sections*HXchanger.Fscale*HXchanger.LMTD))
+        #print(HXchanger.DT_min/(HXchanger.cold_flow_sections*HXchanger.Fscale*HXchanger.LMTD))
 
-        HXchanger.set_mass_flow([0.59, 0.6])
-        epsilon = HXchanger.compute_effectiveness([20,60], method='E_NTU')
-        print(HXchanger.Qdot)
-        print(epsilon)
-        print(HXchanger.NTU)
-
+        success = HXchanger.compute_effectiveness(method='E_NTU')
+        if success:
+            print(HXchanger.Qdot)
+            print(HXchanger.NTU)
 
 
         self.HE_definition.load_heat_exchanger(HXchanger)

@@ -80,6 +80,19 @@ def GET_F(T1in, T2in, T1out, T2out, N):
 
     return F
 
+def pitch_from_tubes(tubes, pattern):
+    # approximate pitch based on number of tubes
+    if pattern == Pattern.SQUARE:
+        k = 1 / np.sqrt(2)
+    elif pattern == Pattern.TRIANGLE:
+        k = 1 / np.sqrt(3)
+    else:
+        print("Error: Unknown pattern")
+
+    pitch = k * D_shell / np.sqrt(tubes)
+
+    return pitch
+
 class Heat_Exchanger():
     def __init__(self, cold_fluid_path, hot_fluid_path, flow_path_entries_side):
         super().__init__()
@@ -97,6 +110,7 @@ class Heat_Exchanger():
         for element in self.hot_path.elements:
             if isinstance(element, Heat_Transfer_Element):
                 self.total_tubes += element.tubes
+                pattern = element.pattern
             if isinstance(element, U_Bend):
                 hot_side_bends += 1
         for element in self.cold_path.elements:
@@ -106,6 +120,9 @@ class Heat_Exchanger():
             if isinstance(element, U_Bend):
                 cold_side_bends += 1
 
+        print("Baffles and tubes")
+        print(self.total_baffles, self.total_tubes)
+
         if cold_side_bends % 2 == hot_side_bends % 2:
             self.flow_path_exits_side = flow_path_entries_side
         elif flow_path_entries_side == Side.SAME:
@@ -113,18 +130,18 @@ class Heat_Exchanger():
         else:
             self.flow_path_exits_side = Side.SAME
 
-
         self.cold_flow_sections = cold_side_bends + 1
         self.hot_flow_sections = hot_side_bends + 1
 
+        print("Cold and Hot Sections")
+        print(self.cold_flow_sections, self.hot_flow_sections)
+
         # initial values
-        self.mdot_hot = 0.3
-        self.mdot_cold = 0.3
+        self.mdot = [0.6, 0.4]
 
         self.L_hot_tube = 0.35
 
-        # TODO: vary this with the heat transfer element pattern
-        self.pitch = 0.014  # Y in handout
+        self.pitch = pitch_from_tubes(self.total_tubes, pattern)
 
         self.hydraulic_iteration_count = 0
 
@@ -132,23 +149,28 @@ class Heat_Exchanger():
         self.hot_pressure_factor = 1
         self.cold_pressure_factor = 1
 
-    def calc_dp(self):
+    def set_conditions(self, Tin):
+        self.Tin = Tin
+
+    def calc_dp(self, mdot):
+
+        mdot_cold, mdot_hot = mdot
 
         # HOT STREAM
 
-        self.DP_hot = 0
+        DP_hot = 0
 
         for i, element in enumerate(self.hot_path.elements):
 
             if isinstance(element, Heat_Transfer_Element):
 
-                mdot_hot_tube = self.mdot_hot / element.tubes
+                mdot_hot_tube = mdot_hot / element.tubes
                 v_hot_tube = mdot_hot_tube / (rho_w * A_tube)
 
                 Re_hot = v_hot_tube * rho_w * D_inner_tube / mu
                 f_hot = element.friction_coefficient(Re_hot, 0.00015)
 
-                self.DP_hot += 0.5 * rho_w * v_hot_tube**2 * \
+                DP_hot += 0.5 * rho_w * v_hot_tube**2 * \
                     (f_hot * self.L_hot_tube / D_inner_tube)
 
             if isinstance(element, Entry_Constriction):
@@ -156,15 +178,21 @@ class Heat_Exchanger():
                     next_element = self.hot_path.elements[i+1]
                     assert isinstance(next_element, Heat_Transfer_Element)
                 except (IndexError, AssertionError):
-                    return False
+                    raise ValueError("Entry constriction must be followed by a heat transfer element")
 
-                mdot_hot_tube = self.mdot_hot / next_element.tubes
+                mdot_hot_tube = mdot_hot / next_element.tubes
                 v_hot_tube = mdot_hot_tube / (rho_w * A_tube)
                 Re_hot = v_hot_tube * rho_w * D_inner_tube / mu
 
-                sigma = next_element.tubes * A_tube / A_shell
-                print(sigma)
-                self.DP_hot += 0.5 * rho_w * v_hot_tube ** 2 * \
+                # if constriction is from inlet then A_constriction = A_section
+                # otherwise constriction is from a bend so A_constriction = 2 * A_section
+                if i == 0:
+                    A_constriction = A_shell / self.hot_flow_sections
+                else:
+                    A_constriction = 2 * A_shell / self.hot_flow_sections
+                 
+                sigma = next_element.tubes * A_tube / A_constriction
+                DP_hot += 0.5 * rho_w * v_hot_tube ** 2 * \
                     element.loss_coefficient(Re_hot, sigma)
 
             if isinstance(element, Exit_Expansion):
@@ -172,32 +200,46 @@ class Heat_Exchanger():
                     prev_element = self.hot_path.elements[i-1]
                     assert isinstance(prev_element, Heat_Transfer_Element)
                 except (IndexError, AssertionError):
-                    return False
+                    raise ValueError("Exit expansion must be preceded by a heat transfer element")
 
-                mdot_hot_tube = self.mdot_hot / prev_element.tubes
+                mdot_hot_tube = mdot_hot / prev_element.tubes
                 v_hot_tube = mdot_hot_tube / (rho_w * A_tube)
+
                 Re_hot = v_hot_tube * rho_w * D_inner_tube / mu
 
-                sigma = prev_element.tubes * A_tube / A_shell
-                print(sigma)
-                self.DP_hot += 0.5 * rho_w * v_hot_tube ** 2 * \
+                # if expanding to last section, then A_expansion = A_section
+                # if not, then expanding to a bend so A_expansion = 2 * A_section
+                if i == len(self.hot_path.elements) - 1:
+                    A_expansion = A_shell / self.hot_flow_sections
+                else:
+                    A_expansion = 2 * A_shell / self.hot_flow_sections
+
+                sigma = prev_element.tubes * A_tube / A_expansion
+                DP_hot += 0.5 * rho_w * v_hot_tube ** 2 * \
                     element.loss_coefficient(Re_hot, sigma)
-
+                
             if isinstance(element, U_Bend):
-                #TODO: Add bend loss
-                self.DP_hot += 0
-
-        v_hot_nozzle = mdot_hot_tube / (rho_w * A_nozzle)
-        self.DP_hot += rho_w * v_hot_nozzle ** 2  # nozzle loss
+                try:
+                    prev_element = self.hot_path.elements[i-1]
+                    assert isinstance(prev_element, Heat_Transfer_Element)
+                except (IndexError, AssertionError):
+                    raise ValueError("Exit expansion must be preceded by a heat transfer element")
+                
+                mdot_hot_tube = mdot_hot / prev_element.tubes
+                v_hot_tube = mdot_hot_tube / (rho_w * A_tube)
+                
+                DP_hot += element.loss_coefficient() * 0.5 * rho_w * v_hot_tube ** 2
+            
+        v_hot_nozzle = mdot_hot / (rho_w * A_nozzle)
+        DP_hot += rho_w * v_hot_nozzle ** 2  # nozzle loss
 
         # COLD STREAM
-
-        self.DP_cold = 0
+        DP_cold = 0
 
         for i, element in enumerate(self.cold_path.elements):
 
             if isinstance(element, Heat_Transfer_Element):
-
+                
                 if element.pattern == Pattern.SQUARE:
                     a_factor = a_square
                 elif element.pattern == Pattern.TRIANGLE:
@@ -209,117 +251,158 @@ class Heat_Exchanger():
                 A_shell_effective = (self.pitch - D_outer_tube) * \
                     B_spacing * D_shell / self.pitch
 
-                v_shell = self.mdot_cold / (rho_w * A_shell_effective)
+                A_section = A_shell_effective / self.cold_flow_sections
 
-                effective_d_shell = D_shell * A_shell_effective / A_shell
-                Re_shell = v_shell * rho_w * effective_d_shell / mu
+                v_shell = mdot_cold / (rho_w * A_section)
 
-                self.DP_cold += 4 * a_factor * \
+                effective_d_section = D_shell * A_section / A_shell
+                Re_shell = v_shell * rho_w * effective_d_section / mu
+
+                DP_cold += 4 * a_factor * \
                     Re_shell ** (-0.15) * element.tubes * rho_w * v_shell ** 2
 
             if isinstance(element, U_Bend):
-                self.DP_cold += 0
 
-        v_cold_nozzle = self.mdot_cold / (rho_w * A_nozzle)
+                try:
+                    prev_element = self.cold_path.elements[i-1]
+                    assert isinstance(prev_element, Heat_Transfer_Element)
+                except (IndexError, AssertionError):
+                    raise ValueError("U Bend must be preceded by a heat transfer element")
+                
+                B_spacing = self.L_hot_tube / (prev_element.baffles + 1)
+                A_shell_effective = (self.pitch - D_outer_tube) * \
+                    B_spacing * D_shell / self.pitch
 
-        self.DP_cold += rho_w * v_cold_nozzle**2
+                A_section = A_shell_effective / self.cold_flow_sections
 
-        return self.DP_cold, self.DP_hot
+                v_shell = mdot_cold / (rho_w * A_section)
+                
+                DP_cold += element.loss_coefficient() * 0.5 * rho_w * v_shell ** 2
+            
 
+        v_cold_nozzle = mdot_cold / (rho_w * A_nozzle)
 
-    def calc_rel_rise(self, x):
-        self.calc_dp()
+        DP_cold += rho_w * v_cold_nozzle**2
+
+        print(DP_cold, DP_hot)
+
+        return DP_cold, DP_hot
+
+    def hydraulic_iteration(self, mdot):
+        mdot_cold, mdot_hot = mdot
+
+        dp_cold, dp_hot = self.calc_dp(mdot)
         
-        cold_rel_dp = dp_from_cold_mass_flow(self.mdot_cold) - self.DP_cold
-        hot_rel_dp = dp_from_hot_mass_flow(self.mdot_hot) - self.DP_hot
+        cold_rel_dp = dp_from_cold_mass_flow(mdot_cold) - dp_cold
+        hot_rel_dp = dp_from_hot_mass_flow(mdot_hot) - dp_hot
 
         return cold_rel_dp, hot_rel_dp
 
-    def set_mass_flow(self, mdot):
-        self.mdot_cold, self.mdot_hot = mdot
+    def calc_area_times_H(self, mdot):
+        mdot_cold, mdot_hot = mdot
+        areatimesH = 0
 
-    def compute_effectiveness(self, Tin, method = "LMTD"):
+        for i, element in enumerate(self.hot_path.elements):
+            if not isinstance(element, Heat_Transfer_Element):
+                continue
 
-        T1in, T2in = Tin
+            # TODO: do something with element.direction
+            # to calculate Fscale
+
+            mdot_hot_tube = mdot_hot / element.tubes
+            v_hot_tube = mdot_hot_tube / (rho_w * A_tube)
+            Re_hot = v_hot_tube * rho_w * D_inner_tube / mu
+
+            # obtain the heat transfer coefficient for the inner and outer tubes
+
+            if element.pattern == Pattern.SQUARE:
+                c_factor = c_square
+            elif element.pattern == Pattern.TRIANGLE:
+                c_factor = c_triangle
+            else:
+                print("Error: Unknown pattern")
+
+            B_spacing = self.L_hot_tube / (element.baffles + 1)
+            A_shell_effective = (self.pitch - D_outer_tube) * \
+                B_spacing * D_shell / self.pitch
+
+            v_shell = mdot_cold / (rho_w * A_shell_effective)
+            effective_d_shell = D_shell * A_shell_effective / A_shell
+            Re_shell = v_shell * rho_w * effective_d_shell / mu
+
+            Nu_i = 0.023 * Re_hot ** 0.8 * Pr ** 0.3
+            Nu_o = c_factor * Re_shell ** 0.6 * Pr ** 0.3
+
+            h_i = Nu_i * k_w / D_inner_tube
+            h_o = Nu_o * k_w / D_outer_tube
+
+            A_i = np.pi * D_inner_tube * self.L_hot_tube
+            A_o = np.pi * D_outer_tube * self.L_hot_tube
+            one_over_H = 1/h_i + A_i * np.log(D_outer_tube / D_inner_tube) / (
+                2 * np.pi * k_tube * self.L_hot_tube) + (A_i / A_o) / h_o
+
+            areatimesH += element.tubes * np.pi * D_inner_tube * self.L_hot_tube / one_over_H
+
+        # TODO: investigate why this is correct
+        return areatimesH * self.cold_flow_sections
+
+    def LMTD_heat_solve_iteration(self, Tout):
+        mdot_hot, mdot_cold = self.mdot
+        T1in, T2in = self.Tin
+        T1out, T2out = Tout  # cold and hot outlet temperatures
+        
+        # TODO: calculate this for various N values
+        if self.cold_flow_sections == 1:
+            Fscale = 1
+        elif self.cold_flow_sections == 2:
+            Fscale = GET_F(T1in, T2in, T1out, T2out, self.cold_flow_sections)
+        else:
+            raise NotImplementedError("Cold flow sections > 2 not implemented")
+        
+        T1in, T2in = self.Tin
+
+        cold_eq = mdot_cold * cp * \
+            (T1out - T1in) - self.area_times_H * Fscale * \
+            logmeanT(T1in, T1out, T2in, T2out)
+        hot_eq = mdot_hot * cp * \
+            (T2in - T2out) - self.area_times_H * Fscale * \
+            logmeanT(T1in, T1out, T2in, T2out)
+
+        return [hot_eq, cold_eq]
+    
+
+    def compute_effectiveness(self, method = "LMTD"):
+
+
+        try:
+            self.mdot = fsolve(self.hydraulic_iteration, 
+                                     self.mdot)
+        except Exception as e:
+            print("Failed to solve hydraulic analsis")
+            print(e)
+            return False
+        
+        mdot_cold, mdot_hot = self.mdot
+        T1in, T2in = self.Tin
 
         # THERMAL ANALYSIS
 
-        # TODO: check if this is correct
-        # The handout seems to do an incorrect calculation so the formula needs to be checked
+        self.area_times_H = self.calc_area_times_H(self.mdot)
 
         if (method == 'LMTD'):
-            def LMTD_heat_solve_iteration(Tout):
-                T1out, T2out = Tout  # cold and hot outlet temperatures
-
-                areatimesH = 0
-
-                for i, element in enumerate(self.hot_path.elements):
-                    if not isinstance(element, Heat_Transfer_Element):
-                        continue
-
-                    # TODO: do something with element.direction
-                    # to calculate Fscale
-
-                    mdot_hot_tube = self.mdot_hot / element.tubes
-                    v_hot_tube = mdot_hot_tube / (rho_w * A_tube)
-                    Re_hot = v_hot_tube * rho_w * D_inner_tube / mu
-
-                    # obtain the heat transfer coefficient for the inner and outer tubes
-
-                    if element.pattern == Pattern.SQUARE:
-                        c_factor = c_square
-                    elif element.pattern == Pattern.TRIANGLE:
-                        c_factor = c_triangle
-                    else:
-                        print("Error: Unknown pattern")
-
-                    B_spacing = self.L_hot_tube / (element.baffles + 1)
-                    A_shell_effective = (self.pitch - D_outer_tube) * \
-                        B_spacing * D_shell / self.pitch
-
-                    v_shell = self.mdot_cold / (rho_w * A_shell_effective)
-                    effective_d_shell = D_shell * A_shell_effective / A_shell
-                    Re_shell = v_shell * rho_w * effective_d_shell / mu
-
-                    Nu_i = 0.023 * Re_hot ** 0.8 * Pr ** 0.3
-                    Nu_o = c_factor * Re_shell ** 0.6 * Pr ** 0.3
-
-                    h_i = Nu_i * k_w / D_inner_tube
-                    h_o = Nu_o * k_w / D_outer_tube
-
-                    A_i = np.pi * D_inner_tube * self.L_hot_tube
-                    A_o = np.pi * D_outer_tube * self.L_hot_tube
-                    one_over_H = 1/h_i + A_i * np.log(D_outer_tube / D_inner_tube) / (
-                        2 * np.pi * k_tube * self.L_hot_tube) + (A_i / A_o) / h_o
-
-                    areatimesH += (element.tubes * np.pi * D_inner_tube * self.L_hot_tube / one_over_H) * self.cold_flow_sections
-                
-                # TODO: calculate this for various N values
-                if self.cold_flow_sections == 1:
-                    Fscale = 1
-                elif self.cold_flow_sections >= 2:
-                    Fscale = GET_F(T1in, T2in, T1out, T2out, self.cold_flow_sections)
-
-                cold_eq = self.mdot_cold * cp * \
-                    (T1out - T1in) - areatimesH *  Fscale * \
-                    logmeanT(T1in, T1out, T2in, T2out)
-                hot_eq = self.mdot_hot * cp * \
-                    (T2in - T2out) - areatimesH * Fscale * \
-                    logmeanT(T1in, T1out, T2in, T2out)
-
-                return [hot_eq, cold_eq]
-
+            
             try:
-                solution = fsolve(LMTD_heat_solve_iteration,
+                solution = fsolve(self.LMTD_heat_solve_iteration,
                                   [2*T1in, 0.5*T2in])
             except Exception as e:
+                print("Failed to solve thermal analsis")
                 print(e)
-                return
+                return False
             
             T1out, T2out = solution
-            C_min = np.min([cp*self.mdot_hot, cp*self.mdot_cold])
+            C_min = np.min([cp*mdot_hot, cp*mdot_cold])
             LMTD = logmeanT(T1in, T1out, T2in, T2out)    
-            Qdot = self.mdot_cold * cp * (T1out - T1in)
+            Qdot = mdot_cold * cp * (T1out - T1in)
             Qdot_max = (C_min * (T2in - T1in))
             effectiveness = Qdot / Qdot_max
             DT_min = np.max([(T1out - T1in), -(T2out - T2in)])
@@ -336,55 +419,15 @@ class Heat_Exchanger():
             self.Fscale = Fscale
 
         elif (method == 'E_NTU'):
-            
-            areatimesH = 0
-
-            for i, element in enumerate(self.hot_path.elements):
-                if not isinstance(element, Heat_Transfer_Element):
-                    continue
-
-                # TODO: do something with element.direction
-                # to calculate Fscale
-
-                mdot_hot_tube = self.mdot_hot / element.tubes
-                v_hot_tube = mdot_hot_tube / (rho_w * A_tube)
-                Re_hot = v_hot_tube * rho_w * D_inner_tube / mu
-
-                # obtain the heat transfer coefficient for the inner and outer tubes
-
-                if element.pattern == Pattern.SQUARE:
-                    c_factor = c_square
-                elif element.pattern == Pattern.TRIANGLE:
-                    c_factor = c_triangle
-                else:
-                    print("Error: Unknown pattern")
-
-                B_spacing = self.L_hot_tube / (element.baffles + 1)
-                A_shell_effective = (self.pitch - D_outer_tube) * \
-                    B_spacing * D_shell / self.pitch
-                v_shell = self.mdot_cold / (rho_w * A_shell_effective)
-                effective_d_shell = D_shell * A_shell_effective / A_shell
-                Re_shell = v_shell * rho_w * effective_d_shell / mu
-
-                Nu_i = 0.023 * Re_hot ** 0.8 * Pr ** 0.3
-                Nu_o = c_factor * Re_shell ** 0.6 * Pr ** 0.3
-
-                h_i = Nu_i * k_w / D_inner_tube
-                h_o = Nu_o * k_w / D_outer_tube
-
-                A_i = np.pi * D_inner_tube * self.L_hot_tube
-                A_o = np.pi * D_outer_tube * self.L_hot_tube
-                one_over_H = 1/h_i + A_i * np.log(D_outer_tube / D_inner_tube) / (
-                    2 * np.pi * k_tube * self.L_hot_tube) + (A_i / A_o) / h_o
-
-                areatimesH += element.tubes * np.pi * D_inner_tube * self.L_hot_tube / one_over_H
 
             N_shell = self.cold_flow_sections
             N_tube = self.hot_flow_sections
-            C_min = np.min([cp*self.mdot_hot, cp*self.mdot_cold])
-            C_max = np.max([cp*self.mdot_hot, cp*self.mdot_cold])
+            C_min = np.min([cp*mdot_hot, cp*mdot_cold])
+            C_max = np.max([cp*mdot_hot, cp*mdot_cold])
             C_rel = C_min/C_max
-            NTU = areatimesH / C_min
+
+            NTU = self.area_times_H / C_min
+
             effectiveness = E_NTU(NTU, C_rel, N_shell, N_tube)
             Qdot_max = (C_min * (T2in - T1in))
             Qdot = effectiveness*Qdot_max
@@ -392,9 +435,19 @@ class Heat_Exchanger():
             self.Qdot = Qdot
             self.NTU = NTU
 
+            Qdotmax = mdot_hot * cp * (T2in - T1in)
+
+            T1out = T1in + effectiveness * Qdotmax / (mdot_cold * cp)
+            T2out = T2in - effectiveness * Qdotmax / (mdot_hot * cp)
+            self.Tout = [T1out, T2out]
+            self.LMTD = logmeanT(T1in, T1out, T2in, T2out)
+            self.Qdot = mdot_cold * cp * (T1out - T1in)
+
+            # could possibly iterate to find Fscale with the new T1out and T2out
+
         self.effectiveness = effectiveness
 
-        return effectiveness
+        return True
 
     def calc_mass(self, x = None):
         
@@ -427,30 +480,42 @@ class Heat_Exchanger():
 
         pass
 
-    def set_geometry(self, L, pitch, tubes, baffles):
+
+
+    def set_geometry(self, length, tubes, baffles):
+
+        self.L_hot_tube = length
+
+        self.total_tubes = 0
+        self.total_baffles = 0
         
         for element in self.hot_path.elements:
             if isinstance(element, Heat_Transfer_Element):
                 element.tubes = tubes
                 element.baffles = baffles
 
+                self.total_tubes += element.tubes
+                self.total_baffles += element.baffles
+
+                pattern = element.pattern
+
         for element in self.cold_path.elements:
             if isinstance(element, Heat_Transfer_Element):
                 element.tubes = tubes
                 element.baffles = baffles
 
-        self.L_hot_tube = L
-        self.pitch = pitch
+
+        self.pitch = pitch_from_tubes(tubes, pattern)
+
     
     def get_random_geometry_copy(self, constraints = None):
 
         new_HE = copy.deepcopy(self)
 
         # set random values for the geometry parameters
-        new_HE.set_geometry(np.random.uniform(0.1, max_HE_length),
-                            np.random.uniform(0.01, 0.02),
-                            np.random.randint(10, 20),
-                            np.random.randint(10, 20))
+        new_HE.set_geometry(np.random.uniform(0.1, 0.35),
+                            np.random.randint(5, 25),
+                            np.random.randint(5, 25))
 
         return new_HE
 
