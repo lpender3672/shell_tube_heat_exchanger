@@ -21,20 +21,20 @@ def cold_mass_flow_from_dp(cold_dp):
 def hot_mass_flow_from_dp(hot_dp):
 
     return np.interp(hot_dp * 1e-5,  # bar
-                     hot_side_compressor_characteristic[1],
-                     hot_side_compressor_characteristic[0]) * rho_w / 1000
+                     hot_side_compressor_characteristic_2024[1],
+                     hot_side_compressor_characteristic_2024[0]) * rho_w / 1000
 
 def dp_from_cold_mass_flow(mdot_cold):
     
         return np.interp(mdot_cold * 1000 / rho_w,
-                        cold_side_compressor_characteristic[0],
-                        cold_side_compressor_characteristic[1]) * 1e5  # Pa
+                        cold_side_compressor_characteristic_2024[0],
+                        cold_side_compressor_characteristic_2024[1]) * 1e5  # Pa
 
 def dp_from_hot_mass_flow(mdot_hot):
         
             return np.interp(mdot_hot * 1000 / rho_w,
-                            hot_side_compressor_characteristic[0],
-                            hot_side_compressor_characteristic[1]) * 1e5  # Pa
+                            hot_side_compressor_characteristic_2024[0],
+                            hot_side_compressor_characteristic_2024[1]) * 1e5  # Pa
 
 def logmeanT(T1in, T1out, T2in, T2out):
     dt1 = (T2in - T1out)
@@ -120,9 +120,6 @@ class Heat_Exchanger():
             if isinstance(element, U_Bend):
                 cold_side_bends += 1
 
-        print("Baffles and tubes")
-        print(self.total_baffles, self.total_tubes)
-
         if cold_side_bends % 2 == hot_side_bends % 2:
             self.flow_path_exits_side = flow_path_entries_side
         elif flow_path_entries_side == Side.SAME:
@@ -133,15 +130,13 @@ class Heat_Exchanger():
         self.cold_flow_sections = cold_side_bends + 1
         self.hot_flow_sections = hot_side_bends + 1
 
-        print("Cold and Hot Sections")
-        print(self.cold_flow_sections, self.hot_flow_sections)
-
         # initial values
-        self.mdot = [0.6, 0.4]
+        self.mdot = [0.8, 0.7]
 
         self.L_hot_tube = 0.35
 
         self.pitch = pitch_from_tubes(self.total_tubes, pattern)
+        #self.pitch = 0.014
 
         self.hydraulic_iteration_count = 0
 
@@ -192,6 +187,7 @@ class Heat_Exchanger():
                     A_constriction = 2 * A_shell / self.hot_flow_sections
                  
                 sigma = next_element.tubes * A_tube / A_constriction
+
                 DP_hot += 0.5 * rho_w * v_hot_tube ** 2 * \
                     element.loss_coefficient(Re_hot, sigma)
 
@@ -215,15 +211,16 @@ class Heat_Exchanger():
                     A_expansion = 2 * A_shell / self.hot_flow_sections
 
                 sigma = prev_element.tubes * A_tube / A_expansion
+
                 DP_hot += 0.5 * rho_w * v_hot_tube ** 2 * \
                     element.loss_coefficient(Re_hot, sigma)
                 
             if isinstance(element, U_Bend):
                 try:
-                    prev_element = self.hot_path.elements[i-1]
+                    prev_element = self.hot_path.elements[i-2]
                     assert isinstance(prev_element, Heat_Transfer_Element)
                 except (IndexError, AssertionError):
-                    raise ValueError("Exit expansion must be preceded by a heat transfer element")
+                    raise ValueError("U Bend must be preceded by a Heat_Transfer_Element and Exit_Expansion")
                 
                 mdot_hot_tube = mdot_hot / prev_element.tubes
                 v_hot_tube = mdot_hot_tube / (rho_w * A_tube)
@@ -284,8 +281,6 @@ class Heat_Exchanger():
 
         DP_cold += rho_w * v_cold_nozzle**2
 
-        print(DP_cold, DP_hot)
-
         return DP_cold, DP_hot
 
     def hydraulic_iteration(self, mdot):
@@ -325,7 +320,7 @@ class Heat_Exchanger():
             B_spacing = self.L_hot_tube / (element.baffles + 1)
             A_shell_effective = (self.pitch - D_outer_tube) * \
                 B_spacing * D_shell / self.pitch
-
+            
             v_shell = mdot_cold / (rho_w * A_shell_effective)
             effective_d_shell = D_shell * A_shell_effective / A_shell
             Re_shell = v_shell * rho_w * effective_d_shell / mu
@@ -340,24 +335,22 @@ class Heat_Exchanger():
             A_o = np.pi * D_outer_tube * self.L_hot_tube
             one_over_H = 1/h_i + A_i * np.log(D_outer_tube / D_inner_tube) / (
                 2 * np.pi * k_tube * self.L_hot_tube) + (A_i / A_o) / h_o
-
+            
             areatimesH += element.tubes * np.pi * D_inner_tube * self.L_hot_tube / one_over_H
 
         # TODO: investigate why this is correct
         return areatimesH * self.cold_flow_sections
 
     def LMTD_heat_solve_iteration(self, Tout):
-        mdot_hot, mdot_cold = self.mdot
+        mdot_cold, mdot_hot = self.mdot
         T1in, T2in = self.Tin
         T1out, T2out = Tout  # cold and hot outlet temperatures
         
         # TODO: calculate this for various N values
         if self.cold_flow_sections == 1:
             Fscale = 1
-        elif self.cold_flow_sections == 2:
+        elif self.cold_flow_sections >= 2:
             Fscale = GET_F(T1in, T2in, T1out, T2out, self.cold_flow_sections)
-        else:
-            raise NotImplementedError("Cold flow sections > 2 not implemented")
         
         T1in, T2in = self.Tin
 
@@ -369,19 +362,20 @@ class Heat_Exchanger():
             logmeanT(T1in, T1out, T2in, T2out)
 
         return [hot_eq, cold_eq]
-    
 
     def compute_effectiveness(self, method = "LMTD"):
-
 
         try:
             self.mdot = fsolve(self.hydraulic_iteration, 
                                      self.mdot)
+            
+            assert np.isfinite(self.mdot).all()
         except Exception as e:
             print("Failed to solve hydraulic analsis")
             print(e)
             return False
         
+        #self.mdot = [0.7,0.47]
         mdot_cold, mdot_hot = self.mdot
         T1in, T2in = self.Tin
 
@@ -407,16 +401,11 @@ class Heat_Exchanger():
             effectiveness = Qdot / Qdot_max
             DT_min = np.max([(T1out - T1in), -(T2out - T2in)])
 
-            if self.cold_flow_sections == 1:
-                Fscale = 1
-            elif self.cold_flow_sections >= 2:
-                Fscale = GET_F(T1in, T2in, T1out, T2out, self.cold_flow_sections)
 
             self.Tout = [T1out, T2out]
             self.LMTD = LMTD
             self.Qdot = Qdot
             self.DT_min = DT_min
-            self.Fscale = Fscale
 
         elif (method == 'E_NTU'):
 
@@ -426,7 +415,7 @@ class Heat_Exchanger():
             C_max = np.max([cp*mdot_hot, cp*mdot_cold])
             C_rel = C_min/C_max
 
-            NTU = self.area_times_H / C_min
+            NTU = (self.area_times_H / self.cold_flow_sections) / C_min
 
             effectiveness = E_NTU(NTU, C_rel, N_shell, N_tube)
             Qdot_max = (C_min * (T2in - T1in))
@@ -469,17 +458,6 @@ class Heat_Exchanger():
             m_baffles +
             m_caps
         )
-
-    def is_geometrically_feasible(self):
-        # TODO: check if the heat exchanger is geometrically feasible
-
-        # performs collision detection to see if the heat exchanger is geometrically feasible
-
-        # check square or triangle design packing of the N_tubes in a shell for the given pitch
-        # also check length of tubes are within individual and total limits
-
-        pass
-
 
 
     def set_geometry(self, length, tubes, baffles):

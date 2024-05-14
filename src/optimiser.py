@@ -76,6 +76,14 @@ class Optimise_Widget(QWidget):
             y[1:] = x[1:] % 1
             return y
         
+        def tube_baffle_constraints(x):
+            
+            y = np.zeros_like(x)
+            y[0] = x[0]
+            y[1] = np.clip()
+            y[2] = x[2] - 1
+            return y
+        
         constraints.append({'type':'eq', 'fun': integer_constraints})
 
         # require hot and cold compressor rises greater than HX pressure drops (so comp_rise - pressure_drop > 0)

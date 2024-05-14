@@ -243,8 +243,6 @@ class Heat_Exchanger_Diagram(QWidget):
     
     def recompute(self):
 
-        print("Recomputing")
-
         try:
             T1in = float(self.cold_inlet_box.text())
             T2in = float(self.hot_inlet_box.text())
