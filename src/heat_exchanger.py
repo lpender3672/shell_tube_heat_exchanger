@@ -363,6 +363,22 @@ class Heat_Exchanger():
 
         return [hot_eq, cold_eq]
 
+
+    def calc_mdot(self, x = None):
+        # Used as a constraint for the optimiser
+
+        try:
+            mdot = fsolve(self.hydraulic_iteration, 
+                                     self.mdot)
+            
+            assert np.isfinite(self.mdot).all()
+        except Exception as e:
+            print("Failed to solve hydraulic analsis")
+            print(e)
+            return None
+
+        return mdot
+
     def compute_effectiveness(self, method = "LMTD"):
 
         try:
@@ -491,9 +507,9 @@ class Heat_Exchanger():
         new_HE = copy.deepcopy(self)
 
         # set random values for the geometry parameters
-        new_HE.set_geometry(np.random.uniform(0.1, 0.35),
-                            np.random.randint(5, 25),
-                            np.random.randint(5, 25))
+        new_HE.set_geometry(0.35,
+                            np.random.randint(1, 20),
+                            np.random.randint(1, 20))
 
         return new_HE
 

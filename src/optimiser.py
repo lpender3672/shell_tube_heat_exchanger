@@ -9,6 +9,7 @@ import numpy as np
 from scipy.optimize import NonlinearConstraint, BFGS
 from scipy.optimize import minimize as scipy_minimize
 
+from constants import *
 from heat_exchanger import Heat_Exchanger
 
 
@@ -70,19 +71,17 @@ class Optimise_Widget(QWidget):
         # TODO: This doesnt work, make this work
         def integer_constraints(x):
 
-            y = np.zeros_like(x)
-            y[0] = 0.35
-            #y[0] = x[0]
-            y[1:] = x[1:] % 1
-            return y
+            max_tubes = 24
+            max_baffles = 30
+
+            tube_bound = max_tubes // self.template.hot_flow_sections
+
+            # Modify x directly to enforce integer constraints
+            x[0] = int(np.clip(x[0] % 1, 1, tube_bound))
+            x[1] = int(np.clip(x[1] % 1, 1, max_baffles))
+
+            return x
         
-        def tube_baffle_constraints(x):
-            
-            y = np.zeros_like(x)
-            y[0] = x[0]
-            y[1] = np.clip()
-            y[2] = x[2] - 1
-            return y
         
         constraints.append({'type':'eq', 'fun': integer_constraints})
 
@@ -95,8 +94,11 @@ class Optimise_Widget(QWidget):
         constraints.append(mass_constraint)
         
         # require length < 0.35
-        #length_constraint = NonlinearConstraint(lambda x : x[0], 0.2, 0.35, jac='2-point', hess=BFGS())
-        #constraints.append(length_constraint)
+        flow_range_constraint = NonlinearConstraint(heat_exchanger.calc_mdot, 
+                                                    [cold_side_compressor_characteristic_2024[0,0],hot_side_compressor_characteristic_2024[0,0]], 
+                                                    [cold_side_compressor_characteristic_2024[0,-1],hot_side_compressor_characteristic_2024[0,-1]], 
+                                                    jac='2-point', hess=BFGS())
+        constraints.append(flow_range_constraint)
 
         return constraints
 
@@ -151,6 +153,7 @@ class Optimise_Widget(QWidget):
             mass = result.heat_exchanger.calc_mass()
 
             print(f"L = {L}, tubes = {tubes}, baffles = {baffles}, mass = {mass}")
+            print(f"mdot_cold = {result.heat_exchanger.mdot[0]}, mdot_hot = {result.heat_exchanger.mdot[1]}")
             print(f"Qdot = {result.heat_exchanger.Qdot}, effectiveness = {result.heat_exchanger.effectiveness}")
 
  
@@ -178,9 +181,9 @@ class Optimise_Worker(QRunnable):
 
     def objective_function(self, x):
 
-        length, tubes, baffles = x
+        tubes, baffles = x
 
-        self.heat_exchanger.set_geometry(length, tubes, baffles)
+        self.heat_exchanger.set_geometry(0.35, tubes, baffles)
     
         result = self.heat_exchanger.compute_effectiveness(method = 'LMTD')
 
@@ -203,7 +206,7 @@ class Optimise_Worker(QRunnable):
         try:
             res = scipy_minimize(
                         self.objective_function, 
-                        [length, tubes, baffles], 
+                        [tubes, baffles], 
                         method='trust-constr',
                         jac="2-point",
                         hess=BFGS(),
