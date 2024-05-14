@@ -147,14 +147,14 @@ class Heat_Exchanger_Definition(QWidget):
         Cold_path = Fluid_Path(rho_w, mu, cp, k_w)
 
         Cold_path.add_element(
-            Heat_Transfer_Element(tubes_per_stage, baffles_per_stage, 
+            Heat_Transfer_Element(tubes_per_stage * hot_stages / cold_stages , baffles_per_stage, 
                                 flow_direction=Direction.COUNTERFLOW,
                                 tube_pattern = Pattern.SQUARE)
         )
         for i in range(cold_stages - 1):
             Cold_path.add_element(U_Bend())
             Cold_path.add_element(
-                Heat_Transfer_Element(tubes_per_stage, baffles_per_stage, 
+                Heat_Transfer_Element(tubes_per_stage * hot_stages / cold_stages, baffles_per_stage, 
                                     flow_direction=Direction.COFLOW,
                                     tube_pattern = Pattern.SQUARE)
             )
