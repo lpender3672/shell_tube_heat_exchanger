@@ -1,6 +1,7 @@
 from PyQt6 import QtWidgets
 from PyQt6.QtWidgets import QMainWindow, QLabel, QFileDialog, QPushButton, QListWidget
 from PyQt6 import QtGui
+from PyQt6.QtCore import Qt
 
 import ctypes
 myappid = 'cued.lwp26.shell_and_tube_heat_exchanger.1.0.0'
@@ -107,14 +108,14 @@ class MainWindow(QMainWindow):
         
         #epsilon = HXchanger.compute_effectiveness(20,60)
         #print(epsilon)
-        HXchanger.set_mass_flow([0.7, 0.5])
-        print(HXchanger.calc_mass())
-        epsilon = HXchanger.compute_effectiveness([20,60], method='LMTD')
-        print(HXchanger.Qdot)
+        HXchanger.set_conditions([20,60])
+        print(HXchanger.calc_dp([0.5, 0.45]))
 
-        HXchanger.set_mass_flow([0.7, 0.5])
-        epsilon = HXchanger.compute_effectiveness([20,60], method='LMTD')
-        print(HXchanger.Qdot)
+        #epsilon = HXchanger.compute_effectiveness(method='LMTD')
+        #print(HXchanger.Qdot)
+
+        #epsilon = HXchanger.compute_effectiveness(method='LMTD')
+        #print(HXchanger.Qdot)
 
         self.HE_definition.load_heat_exchanger(HXchanger)
         

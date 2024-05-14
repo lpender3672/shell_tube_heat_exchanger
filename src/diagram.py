@@ -184,12 +184,46 @@ class Heat_Exchanger_Diagram(QWidget):
         self.cold_outlet_box.setPlaceholderText("T1out")
         self.hot_outlet_box.setPlaceholderText("T2out")
 
+        self.mdot_hot_box = QLineEdit()
+        self.mdot_cold_box = QLineEdit()
+        self.Qdot_box = QLineEdit()
+        self.effectiveness_box = QLineEdit()
+
+        self.mdot_hot_box.setReadOnly(True)
+        self.mdot_cold_box.setReadOnly(True)
+        self.Qdot_box.setReadOnly(True)
+        self.effectiveness_box.setReadOnly(True)
+
+        self.mdot_hot_box.setPlaceholderText("mdot_hot")
+        self.mdot_cold_box.setPlaceholderText("mdot_cold")
+        self.Qdot_box.setPlaceholderText("Qdot")
+        self.effectiveness_box.setPlaceholderText("Effectiveness")
+
+        self.mdot_hot_label = QLabel("Hot mass flow rate:")
+        self.mdot_cold_label = QLabel("Cold mass flow rate:")
+        self.Qdot_label = QLabel("Heat transfer rate:")
+        self.effectiveness_label = QLabel("Effectiveness:")
+
+
         # Set up the layout
         layout = QGridLayout()
         layout.addWidget(self.cold_inlet_box, 0, 0)
         layout.addWidget(self.hot_inlet_box, 0, 1)
         layout.addWidget(self.cold_outlet_box, 1, 0)
         layout.addWidget(self.hot_outlet_box, 1, 1)
+
+        layout.addWidget(self.mdot_hot_label, 2, 0)
+        layout.addWidget(self.mdot_hot_box, 2, 1)
+        layout.addWidget(self.mdot_cold_label, 3, 0)
+        layout.addWidget(self.mdot_cold_box, 3, 1)
+        layout.addWidget(self.Qdot_label, 4, 0)
+        layout.addWidget(self.Qdot_box, 4, 1)
+        layout.addWidget(self.effectiveness_label, 5, 0)
+        layout.addWidget(self.effectiveness_box, 5, 1)
+
+        # move labels and outputs down
+        for i in range(2, 6):
+            layout.setVerticalSpacing(50)
 
         self.setLayout(layout)
         
@@ -200,18 +234,27 @@ class Heat_Exchanger_Diagram(QWidget):
     
     def recompute(self):
 
+        print("Recomputing")
+
         try:
             T1in = float(self.cold_inlet_box.text())
             T2in = float(self.hot_inlet_box.text())
         except ValueError:
             return
 
-        self.heat_exchanger.compute_effectiveness(
-            [T1in, T2in],
+        self.heat_exchanger.set_conditions([T1in, T2in])
+        res = self.heat_exchanger.compute_effectiveness(
             method='LMTD'
         )
 
+        if not res:
+            print("failed to compute effectiveness")
+            return
+
         T1out, T2out = self.heat_exchanger.Tout
+        mdot_cold, mdot_hot = self.heat_exchanger.mdot
+        Qdot = self.heat_exchanger.Qdot
+        effectiveness = self.heat_exchanger.effectiveness
 
         self.cold_outlet_box.setText(
             str(np.round(T1out,2))
@@ -219,7 +262,20 @@ class Heat_Exchanger_Diagram(QWidget):
         self.hot_outlet_box.setText(
             str(np.round(T2out,2))
             )
-
+        
+        self.mdot_cold_box.setText(
+            str(np.round(mdot_cold,2))
+            )
+        self.mdot_hot_box.setText(
+            str(np.round(mdot_hot,2))
+            )
+        self.Qdot_box.setText(
+            str(np.round(Qdot,2))
+            )
+        self.effectiveness_box.setText(
+            str(np.round(effectiveness,2))
+            )
+        
     def paintEvent(self, event):
         super().paintEvent(event)
         painter = QPainter(self)
