@@ -60,7 +60,7 @@ class MainWindow(QMainWindow):
 
         self.show()
 
-        HXchanger = self.HE_definition.set_heat_exchanger(1, 2, 13, 9)
+        HXchanger = self.HE_definition.set_heat_exchanger(1, 1, 9, 13)
 
         self.optimise_widget.set_design_template(HXchanger)
         self.optimise_widget.set_conditions([20,60])
@@ -68,7 +68,7 @@ class MainWindow(QMainWindow):
  
         print(HXchanger.calc_mass())
         HXchanger.set_conditions([20,60])
-        success = HXchanger.compute_effectiveness(method='LMTD')
+        success = HXchanger.compute_effectiveness(method='LMTD', optimiser='brute')
         if success:
             print(HXchanger.Qdot)
             print(HXchanger.LMTD)
@@ -101,5 +101,3 @@ if __name__ == "__main__":
     app.aboutToQuit.connect(window.on_exit)
 
     app.exec()
-
-

@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import copy
 
 from scipy.optimize import fsolve
+import scipy
+import scipy.optimize
 
 from constants import *
 
@@ -14,8 +16,8 @@ from fluid_path import Entry_Constriction, Exit_Expansion, U_Bend, Heat_Transfer
 def cold_mass_flow_from_dp(cold_dp):
 
     return np.interp(cold_dp * 1e-5,
-                     cold_side_compressor_characteristic[1],
-                     cold_side_compressor_characteristic[0]) * rho_w / 1000
+                     cold_side_compressor_characteristic_2024[1],
+                     cold_side_compressor_characteristic_2024[0]) * rho_w / 1000
 
 
 def hot_mass_flow_from_dp(hot_dp):
@@ -27,14 +29,14 @@ def hot_mass_flow_from_dp(hot_dp):
 def dp_from_cold_mass_flow(mdot_cold):
     
         return np.interp(mdot_cold * 1000 / rho_w,
-                        cold_side_compressor_characteristic_2024[0],
-                        cold_side_compressor_characteristic_2024[1]) * 1e5  # Pa
+                        np.fliplr(cold_side_compressor_characteristic_2024)[0],
+                        np.fliplr(cold_side_compressor_characteristic_2024)[1]) * 1e5  # Pa
 
 def dp_from_hot_mass_flow(mdot_hot):
         
             return np.interp(mdot_hot * 1000 / rho_w,
-                            hot_side_compressor_characteristic_2024[0],
-                            hot_side_compressor_characteristic_2024[1]) * 1e5  # Pa
+                            np.fliplr(hot_side_compressor_characteristic_2024)[0],
+                            np.fliplr(hot_side_compressor_characteristic_2024)[1]) * 1e5  # Pa
 
 def logmeanT(T1in, T1out, T2in, T2out):
     dt1 = (T2in - T1out)
@@ -131,7 +133,7 @@ class Heat_Exchanger():
         self.hot_flow_sections = hot_side_bends + 1
 
         # initial values
-        self.mdot = [0.8, 0.7]
+        self.mdot = [0.3, 0.25]
 
         self.L_hot_tube = 0.35
 
@@ -187,6 +189,7 @@ class Heat_Exchanger():
                     A_constriction = 2 * A_shell / self.hot_flow_sections
                  
                 sigma = next_element.tubes * A_tube / A_constriction
+
 
                 DP_hot += 0.5 * rho_w * v_hot_tube ** 2 * \
                     element.loss_coefficient(Re_hot, sigma)
@@ -292,6 +295,16 @@ class Heat_Exchanger():
         hot_rel_dp = dp_from_hot_mass_flow(mdot_hot) - dp_hot
 
         return cold_rel_dp, hot_rel_dp
+    
+    def hydraulic_iteration_squared(self, mdot):
+        mdot_cold, mdot_hot = mdot
+
+        dp_cold, dp_hot = self.calc_dp(mdot)
+        
+        cold_rel_dp = dp_from_cold_mass_flow(mdot_cold) - dp_cold
+        hot_rel_dp = dp_from_hot_mass_flow(mdot_hot) - dp_hot
+
+        return cold_rel_dp**2 + hot_rel_dp**2
 
     def calc_area_times_H(self, mdot):
         mdot_cold, mdot_hot = mdot
@@ -363,19 +376,27 @@ class Heat_Exchanger():
 
         return [hot_eq, cold_eq]
 
-    def compute_effectiveness(self, method = "LMTD"):
+    def compute_effectiveness(self, method = "LMTD", optimiser="brute"):
 
-        try:
-            self.mdot = fsolve(self.hydraulic_iteration, 
-                                     self.mdot)
+        if (optimiser =='brute'):
+            try:
+                grid = (slice(np.min(cold_side_compressor_characteristic_2024[0]), np.max(cold_side_compressor_characteristic_2024[0]), 0.01), slice(np.min(hot_side_compressor_characteristic_2024[0]), np.max(hot_side_compressor_characteristic_2024[0]), 0.01))
+                self.mdot = scipy.optimize.brute(self.hydraulic_iteration_squared, ranges=grid, finish=None )
             
-            assert np.isfinite(self.mdot).all()
-        except Exception as e:
-            print("Failed to solve hydraulic analsis")
-            print(e)
-            return False
+                assert np.isfinite(self.mdot).all()
+            except Exception as e:
+                print("Failed to solve hydraulic analsis")
+                print(e)
+                return False
+        if(optimiser == 'fsolve'):
+            try:
+                self.mdot = fsolve(self.hydraulic_iteration,self.mdot)
+                assert np.isfinite(self.mdot).all()
+            except Exception as e:
+                print("Failed to solve hydraulic analsis")
+                print(e)
+                return False
         
-        #self.mdot = [0.7,0.47]
         mdot_cold, mdot_hot = self.mdot
         T1in, T2in = self.Tin
 
