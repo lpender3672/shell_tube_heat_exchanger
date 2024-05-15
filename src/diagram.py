@@ -189,9 +189,13 @@ class Heat_Exchanger_Diagram(QWidget):
         self.hot_inlet_box.editingFinished.connect(self.recompute)
     
         self.cold_inlet_box.setPlaceholderText("T1in")
+        self.cold_inlet_box.setStyleSheet("color: blue;")
         self.hot_inlet_box.setPlaceholderText("T2in")
+        self.hot_inlet_box.setStyleSheet("color: red;")
         self.cold_outlet_box.setPlaceholderText("T1out")
+        self.cold_outlet_box.setStyleSheet("color: blue;")
         self.hot_outlet_box.setPlaceholderText("T2out")
+        self.hot_outlet_box.setStyleSheet("color: red;")
 
         self.mdot_hot_box = QLineEdit()
         self.mdot_cold_box = QLineEdit()
@@ -221,20 +225,24 @@ class Heat_Exchanger_Diagram(QWidget):
         layout.addWidget(self.cold_outlet_box, 1, 0)
         layout.addWidget(self.hot_outlet_box, 1, 1)
 
-        layout.addWidget(self.mdot_hot_label, 2, 0)
-        layout.addWidget(self.mdot_hot_box, 2, 1)
-        layout.addWidget(self.mdot_cold_label, 3, 0)
-        layout.addWidget(self.mdot_cold_box, 3, 1)
-        layout.addWidget(self.Qdot_label, 4, 0)
-        layout.addWidget(self.Qdot_box, 4, 1)
-        layout.addWidget(self.effectiveness_label, 5, 0)
-        layout.addWidget(self.effectiveness_box, 5, 1)
 
-        # move labels and outputs down
-        for i in range(2, 6):
-            layout.setVerticalSpacing(50)
+        for i,w in enumerate(self.get_output_widgets()):
+            layout.addWidget(w, i//2+2, i%2, 1, 2)
 
         self.setLayout(layout)
+    
+    def get_output_widgets(self):
+
+        return [
+            self.mdot_hot_label,
+            self.mdot_hot_box,
+            self.mdot_cold_label,
+            self.mdot_cold_box,
+            self.Qdot_label,
+            self.Qdot_box,
+            self.effectiveness_label,
+            self.effectiveness_box
+        ]
         
     def set_heat_exchanger(self, heat_exchanger):
         self.heat_exchanger = heat_exchanger
@@ -334,12 +342,13 @@ class Heat_Exchanger_Diagram(QWidget):
 
         hot_channel_width = 200 / self.heat_exchanger.hot_flow_sections
         cold_channel_width = 200 / self.heat_exchanger.cold_flow_sections
+        largest_width = max(hot_channel_width, cold_channel_width)
 
-        if (self.heat_exchanger.hot_flow_sections % self.heat_exchanger.cold_flow_sections == 0 or 
-            self.heat_exchanger.cold_flow_sections % self.heat_exchanger.hot_flow_sections ==0):
-            v_offset = 0.1 * cold_channel_width
+        if (self.heat_exchanger.hot_flow_sections - self.heat_exchanger.cold_flow_sections) % 2 == 0:
+            v_offset = 0.08 * largest_width
         else:
             v_offset = 0
+
 
         # hot
         x_hot_ins = [125, 675]
@@ -367,11 +376,17 @@ class Heat_Exchanger_Diagram(QWidget):
             x_hot_out = x_hot_ins[x_cold_out == x_cold_ins[0]]
         draw_arrow(painter, QPoint(int(x_hot_out * scale_x), int(300 * scale_y)), QPoint(int(x_hot_out * scale_x), int(350 * scale_y)), 10, Qt.GlobalColor.red, 2)
         
-        # set positions of inlets and outlets
-        self.cold_inlet_box.setGeometry(int(x_cold_in * scale_x), int(25 * scale_y), 50, 50)
-        self.hot_inlet_box.setGeometry(int(x_hot_in * scale_x), int(25 * scale_y), 50, 50)
-        self.cold_outlet_box.setGeometry(int(x_cold_out * scale_x), int(325 * scale_y), 50, 50)
-        self.hot_outlet_box.setGeometry(int(x_hot_out * scale_x), int(325 * scale_y), 50, 50)
+        # set positions of inlets and outlet boxes
+        box_x_offset = -20
+        self.cold_inlet_box.setGeometry(int((x_cold_in + box_x_offset) * scale_x), int(25 * scale_y), 35, 25)
+        self.hot_inlet_box.setGeometry(int((x_hot_in + box_x_offset) * scale_x), int(25 * scale_y), 35, 25)
+        self.cold_outlet_box.setGeometry(int((x_cold_out + box_x_offset) * scale_x), int(350 * scale_y), 35, 25)
+        self.hot_outlet_box.setGeometry(int((x_hot_out + box_x_offset) * scale_x), int(350 * scale_y), 35, 25)
+
+        # set position of output boxes
+        label_width = 120
+        for i,w in enumerate(self.get_output_widgets()):
+            w.setGeometry(int(100 * scale_x + label_width * (i % 2)), int((500 + 50 * (i//2)) * scale_y), label_width, 25)
 
         # Draw zigzag lines using the draw_zigzag_line function
 
