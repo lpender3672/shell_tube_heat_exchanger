@@ -460,7 +460,7 @@ class Heat_Exchanger():
 
         return True
 
-    def calc_mass(self, x = None):
+    def calc_mass(self, *args):
         
         baffle_area_occlusion_ratio = 0.8
 

@@ -8,6 +8,7 @@ import numpy as np
 
 from scipy.optimize import NonlinearConstraint, BFGS
 from scipy.optimize import minimize as scipy_minimize
+from scipy.optimize import shgo as scipy_shgo
 
 from constants import *
 from heat_exchanger import Heat_Exchanger
@@ -85,7 +86,7 @@ class Optimise_Widget(QWidget):
             heat_exchanger.id = i
 
             # scipy optimse worker
-            worker = Scipy_Optimise_Worker(heat_exchanger)
+            worker = Scipy_Global_Optimise_Worker(heat_exchanger)
             worker.build_constraints()
             
             worker.signal.iteration_update.connect(self.on_iteration_update)
@@ -119,6 +120,9 @@ class Optimise_Widget(QWidget):
             print(f"L = {L}, tubes = {tubes}, baffles = {baffles}, mass = {mass}")
             print(f"mdot_cold = {result.heat_exchanger.mdot[0]}, mdot_hot = {result.heat_exchanger.mdot[1]}")
             print(f"Qdot = {result.heat_exchanger.Qdot}, effectiveness = {result.heat_exchanger.effectiveness}")
+        
+        else:
+            print("Optimisation Failed")
 
     def cancel_optimise(self):
         self.start_optimise_button.setEnabled(True)
@@ -137,6 +141,8 @@ class Scipy_Optimise_Worker(QRunnable):
 
         self.heat_exchanger = heat_exchanger
         self.cancelled = False
+        self.iteration_count = 0
+        self.emit_interval = 10
 
         self.signal = Worker_Signals()
 
@@ -144,52 +150,53 @@ class Scipy_Optimise_Worker(QRunnable):
         
         constraints = []
     
+        def calc_mass(x):
+            self.heat_exchanger.set_geometry(0.35, x[0], x[1])
+            return self.heat_exchanger.calc_mass()
+
+        # require mass < 1.20kg
+        mass_constraint = NonlinearConstraint(calc_mass, 0.5, 1.20, jac='2-point', hess=BFGS())
+        constraints.append(mass_constraint)
+
+
         # force number of tubes and baffles to take integer values
-        # TODO: This doesnt work, make this work
         def integer_constraints(x):
-
-            max_tubes = 24
-            max_baffles = 30
-
-            tube_bound = max_tubes // self.heat_exchanger.hot_flow_sections
-
             # Modify x directly to enforce integer constraints
-            x[0] = int(np.clip(x[0] % 1, 1, tube_bound))
-            x[1] = int(np.clip(x[1] % 1, 1, max_baffles))
-
+            x[0] = x[0] % 1
+            x[1] = x[1] % 1
             return x
-        
         
         constraints.append({'type':'eq', 'fun': integer_constraints})
 
-        # require hot and cold compressor rises greater than HX pressure drops (so comp_rise - pressure_drop > 0)
-        #flow_constraints = NonlinearConstraint(heat_exchanger.calc_rel_rise, [0,0], [np.inf, np.inf], jac='2-point', hess=BFGS())
-        #constraints.append(flow_constraints)
+        # range constraints
+        max_tubes = 24
+        max_baffles_per_section = 30
+        max_tubes_per_section = max_tubes // self.heat_exchanger.hot_flow_sections
 
-        # require mass < 1.20kg
-        mass_constraint = NonlinearConstraint(self.heat_exchanger.calc_mass, 0, 1.20, jac='2-point', hess=BFGS())
-        constraints.append(mass_constraint)
-        
-        # require length < 0.35
+        constraints.append({'type':'ineq', 'fun': lambda x: x[0] - 1})
+        constraints.append({'type':'ineq', 'fun': lambda x: x[1] - 1})
+        constraints.append({'type':'ineq', 'fun': lambda x: max_tubes_per_section - x[0]})
+        constraints.append({'type':'ineq', 'fun': lambda x: max_baffles_per_section - x[1]})
+
+        # require hot and cold compressor rises greater than HX pressure drops (so comp_rise - pressure_drop > 0)
         flow_range_constraint = NonlinearConstraint(self.heat_exchanger.calc_mdot, 
                                                     [cold_side_compressor_characteristic_2024[0,0],hot_side_compressor_characteristic_2024[0,0]], 
                                                     [cold_side_compressor_characteristic_2024[0,-1],hot_side_compressor_characteristic_2024[0,-1]], 
                                                     jac='2-point', hess=BFGS())
-        constraints.append(flow_range_constraint)
+        #constraints.append(flow_range_constraint)
 
         self.constraints = constraints
 
     def objective_function(self, x):
 
-        tubes, baffles = x
-
-        self.heat_exchanger.set_geometry(0.35, tubes, baffles)
+        self.heat_exchanger.set_geometry(0.35, x[0], x[1])
     
         result = self.heat_exchanger.compute_effectiveness(method = 'LMTD')
 
         #if not result:  return np.inf
-
-        self.signal.iteration_update.emit(self.heat_exchanger)
+        if self.iteration_count % self.emit_interval == 0:
+            self.signal.iteration_update.emit(self.heat_exchanger)
+        self.iteration_count += 1
 
         return 1e4 / self.heat_exchanger.Qdot
         
@@ -199,34 +206,89 @@ class Scipy_Optimise_Worker(QRunnable):
         # https://docs.scipy.org/doc/scipy/tutorial/optimize.html
         # 
 
-        length = self.heat_exchanger.L_hot_tube
         tubes = self.heat_exchanger.total_tubes
         baffles = self.heat_exchanger.total_baffles
 
-        try:
-            res = scipy_minimize(
+        res = scipy_minimize(
                         self.objective_function, 
                         [tubes, baffles], 
                         method='trust-constr',
                         jac="2-point",
                         hess=BFGS(),
                         constraints=self.constraints,
-                        options={'verbose': 1}
+                        options={'verbose': 1, 'maxiter':1000}
                         )
-        except Exception as e:
-            print(e)
-            result = Optimise_Result(
-                self.heat_exchanger,
-                False
-            )
-        else:
-            result = Optimise_Result(
-                self.heat_exchanger,
-                res.success
-            )
+
+        result = Optimise_Result(
+            self.heat_exchanger,
+            res.success
+        )
 
         self.signal.finished.emit(result)
 
+class Scipy_Global_Optimise_Worker(QRunnable):
+    def __init__(self, heat_exchanger):
+        super().__init__()
+        QObject.__init__(self)
+
+        self.heat_exchanger = heat_exchanger
+        self.cancelled = False
+        self.iteration_count = 0
+        self.emit_interval = 10
+
+        self.signal = Worker_Signals()
+
+    def objective_function(self, x):
+
+        self.heat_exchanger.set_geometry(0.35, x[0], x[1])    
+        result = self.heat_exchanger.compute_effectiveness(method = 'LMTD')
+
+        if self.iteration_count % self.emit_interval == 0:
+            self.signal.iteration_update.emit(self.heat_exchanger)
+
+        self.iteration_count += 1
+        return 1e4 / self.heat_exchanger.Qdot
+
+    def build_constraints(self):
+        
+        constraints = []
+
+        def calc_mass(x):
+            self.heat_exchanger.set_geometry(0.35, x[0], x[1])
+            return self.heat_exchanger.calc_mass()
+
+        # require mass < 1.20kg
+        mass_constraint = NonlinearConstraint(calc_mass, 0.5, 1.20, jac='2-point')
+        constraints.append(mass_constraint)
+
+        def integer_constraints(x):
+            x[0] = x[0] % 1
+            x[1] = x[1] % 1
+            return x
+        
+        constraints.append({'type':'eq', 'fun': integer_constraints})
+
+        self.constraints = constraints
+
+    def run(self):
+
+        max_tubes = 24
+        max_baffles_per_section = 30
+        max_tubes_per_section = max_tubes // self.heat_exchanger.hot_flow_sections
+
+        result = scipy_shgo(self.objective_function, 
+                            bounds = [(0.5, 50), 
+                                      (0.5, 50)],
+                            constraints=self.constraints, 
+                            iters=100,
+                            options={'verbose': 1},
+                            sampling_method='sobol'
+                            )
+        
+        self.signal.finished.emit(
+            Optimise_Result(self.heat_exchanger, result.success)
+            )
+        
 
 class Brute_Force_Worker(QRunnable):
     def __init__(self, heat_exchanger, id = 0):

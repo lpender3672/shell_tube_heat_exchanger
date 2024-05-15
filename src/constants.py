@@ -164,7 +164,7 @@ m_small_O = 0.0008
 m_large_O = 0.0053
 
 
-num_threads = 4
+num_threads = 1
 
 if __name__ == "__main__":
 
