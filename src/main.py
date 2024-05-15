@@ -60,12 +60,11 @@ class MainWindow(QMainWindow):
 
         self.show()
 
-        HXchanger = self.HE_definition.set_heat_exchanger(1, 2, 13, 9)
+        HXchanger = self.HE_definition.set_heat_exchanger(1, 1, 13, 9)
 
         self.optimise_widget.set_design_template(HXchanger)
         self.optimise_widget.set_conditions([20,60])
 
- 
         print(HXchanger.calc_mass())
         HXchanger.set_conditions([20,60])
         success = HXchanger.compute_effectiveness(method='LMTD')
@@ -74,7 +73,6 @@ class MainWindow(QMainWindow):
             print(HXchanger.LMTD)
             print(HXchanger.effectiveness)
 
-        #print(HXchanger.DT_min/(HXchanger.cold_flow_sections*HXchanger.Fscale*HXchanger.LMTD))
 
         success = HXchanger.compute_effectiveness(method='E_NTU')
         if success:

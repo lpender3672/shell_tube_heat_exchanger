@@ -14,8 +14,8 @@ from fluid_path import Entry_Constriction, Exit_Expansion, U_Bend, Heat_Transfer
 def cold_mass_flow_from_dp(cold_dp):
 
     return np.interp(cold_dp * 1e-5,
-                     cold_side_compressor_characteristic[1],
-                     cold_side_compressor_characteristic[0]) * rho_w / 1000
+                     cold_side_compressor_characteristic_2024[1],
+                     cold_side_compressor_characteristic_2024[0]) * rho_w / 1000
 
 
 def hot_mass_flow_from_dp(hot_dp):
@@ -24,17 +24,19 @@ def hot_mass_flow_from_dp(hot_dp):
                      hot_side_compressor_characteristic_2024[1],
                      hot_side_compressor_characteristic_2024[0]) * rho_w / 1000
 
+
 def dp_from_cold_mass_flow(mdot_cold):
-    
+        # check if in the range for the compressor characteristics
+        
         return np.interp(mdot_cold * 1000 / rho_w,
                         cold_side_compressor_characteristic_2024[0],
                         cold_side_compressor_characteristic_2024[1]) * 1e5  # Pa
 
 def dp_from_hot_mass_flow(mdot_hot):
         
-            return np.interp(mdot_hot * 1000 / rho_w,
-                            hot_side_compressor_characteristic_2024[0],
-                            hot_side_compressor_characteristic_2024[1]) * 1e5  # Pa
+        return np.interp(mdot_hot * 1000 / rho_w,
+                        hot_side_compressor_characteristic_2024[0],
+                        hot_side_compressor_characteristic_2024[1]) * 1e5  # Pa
 
 def logmeanT(T1in, T1out, T2in, T2out):
     dt1 = (T2in - T1out)
@@ -131,7 +133,7 @@ class Heat_Exchanger():
         self.hot_flow_sections = hot_side_bends + 1
 
         # initial values
-        self.mdot = [0.8, 0.7]
+        self.mdot = [0.6, 0.8]
 
         self.L_hot_tube = 0.35
 
@@ -287,11 +289,15 @@ class Heat_Exchanger():
         mdot_cold, mdot_hot = mdot
 
         dp_cold, dp_hot = self.calc_dp(mdot)
-        
-        cold_rel_dp = dp_from_cold_mass_flow(mdot_cold) - dp_cold
-        hot_rel_dp = dp_from_hot_mass_flow(mdot_hot) - dp_hot
 
-        return cold_rel_dp, hot_rel_dp
+        # check if mdot is in the range for the compressor characteristics
+        
+        new_mdot_cold = cold_mass_flow_from_dp(dp_cold)
+        new_mdot_hot = hot_mass_flow_from_dp(dp_hot)
+
+        error = [new_mdot_cold - mdot_cold, new_mdot_hot - mdot_hot]
+
+        return error
 
     def calc_area_times_H(self, mdot):
         mdot_cold, mdot_hot = mdot
@@ -365,11 +371,11 @@ class Heat_Exchanger():
 
 
     def calc_mdot(self, x = None):
-        # Used as a constraint for the optimiser
 
         try:
             mdot = fsolve(self.hydraulic_iteration, 
-                                     self.mdot)
+                                     self.mdot
+                                     )
             
             assert np.isfinite(self.mdot).all()
         except Exception as e:
@@ -477,6 +483,7 @@ class Heat_Exchanger():
 
 
     def set_geometry(self, length, tubes, baffles):
+        # tubes and baffle is per element
 
         self.L_hot_tube = length
 
@@ -512,4 +519,3 @@ class Heat_Exchanger():
                             np.random.randint(1, 20))
 
         return new_HE
-

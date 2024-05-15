@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QWidget, QMainWindow, QLabel, QFileDialog, QPushButt
 from PyQt6 import QtGui
 from PyQt6 import QtWidgets
 
-
+import copy
 import numpy as np
 
 from scipy.optimize import NonlinearConstraint, BFGS
@@ -62,46 +62,6 @@ class Optimise_Widget(QWidget):
     def set_conditions(self, conditions):
         self.conditions = conditions
 
-    
-    def build_constraints(self, heat_exchanger):
-        
-        constraints = []
-    
-        # force number of tubes and baffles to take integer values
-        # TODO: This doesnt work, make this work
-        def integer_constraints(x):
-
-            max_tubes = 24
-            max_baffles = 30
-
-            tube_bound = max_tubes // self.template.hot_flow_sections
-
-            # Modify x directly to enforce integer constraints
-            x[0] = int(np.clip(x[0] % 1, 1, tube_bound))
-            x[1] = int(np.clip(x[1] % 1, 1, max_baffles))
-
-            return x
-        
-        
-        constraints.append({'type':'eq', 'fun': integer_constraints})
-
-        # require hot and cold compressor rises greater than HX pressure drops (so comp_rise - pressure_drop > 0)
-        #flow_constraints = NonlinearConstraint(heat_exchanger.calc_rel_rise, [0,0], [np.inf, np.inf], jac='2-point', hess=BFGS())
-        #constraints.append(flow_constraints)
-
-        # require mass < 1.20kg
-        mass_constraint = NonlinearConstraint(heat_exchanger.calc_mass, 0, 1.20, jac='2-point', hess=BFGS())
-        constraints.append(mass_constraint)
-        
-        # require length < 0.35
-        flow_range_constraint = NonlinearConstraint(heat_exchanger.calc_mdot, 
-                                                    [cold_side_compressor_characteristic_2024[0,0],hot_side_compressor_characteristic_2024[0,0]], 
-                                                    [cold_side_compressor_characteristic_2024[0,-1],hot_side_compressor_characteristic_2024[0,-1]], 
-                                                    jac='2-point', hess=BFGS())
-        constraints.append(flow_range_constraint)
-
-        return constraints
-
 
     def start_optimiser(self):
 
@@ -121,8 +81,10 @@ class Optimise_Widget(QWidget):
         for i in range(self.num_threads):
             heat_exchanger = self.template.get_random_geometry_copy()
             heat_exchanger.set_conditions(self.conditions)
-            constraints = self.build_constraints(heat_exchanger)
-            worker = Optimise_Worker(heat_exchanger, constraints)
+
+            # scipy optimse worker
+            worker = Scipy_Optimise_Worker(heat_exchanger, i)
+            worker.build_constraints()
             
             worker.signal.iteration_update.connect(self.on_iteration_update)
             worker.signal.finished.connect(self.on_optimisation_finished)
@@ -135,6 +97,7 @@ class Optimise_Widget(QWidget):
         
 
     def on_iteration_update(self, heat_exchanger):
+        # update graphs
         pass
 
 
@@ -166,18 +129,56 @@ class Worker_Signals(QObject):
     iteration_update = pyqtSignal(Heat_Exchanger)
     finished = pyqtSignal(Optimise_Result)
 
-class Optimise_Worker(QRunnable):
+class Scipy_Optimise_Worker(QRunnable):
 
-    def __init__(self, heat_exchanger, constraints):
+    def __init__(self, heat_exchanger, id = 0):
         super().__init__()
         QObject.__init__(self)
 
         self.heat_exchanger = heat_exchanger
+        self.id = id
         self.cancelled = False
 
-        self.constraints = constraints
-
         self.signal = Worker_Signals()
+
+    def build_constraints(self):
+        
+        constraints = []
+    
+        # force number of tubes and baffles to take integer values
+        # TODO: This doesnt work, make this work
+        def integer_constraints(x):
+
+            max_tubes = 24
+            max_baffles = 30
+
+            tube_bound = max_tubes // self.heat_exchanger.hot_flow_sections
+
+            # Modify x directly to enforce integer constraints
+            x[0] = int(np.clip(x[0] % 1, 1, tube_bound))
+            x[1] = int(np.clip(x[1] % 1, 1, max_baffles))
+
+            return x
+        
+        
+        constraints.append({'type':'eq', 'fun': integer_constraints})
+
+        # require hot and cold compressor rises greater than HX pressure drops (so comp_rise - pressure_drop > 0)
+        #flow_constraints = NonlinearConstraint(heat_exchanger.calc_rel_rise, [0,0], [np.inf, np.inf], jac='2-point', hess=BFGS())
+        #constraints.append(flow_constraints)
+
+        # require mass < 1.20kg
+        mass_constraint = NonlinearConstraint(self.heat_exchanger.calc_mass, 0, 1.20, jac='2-point', hess=BFGS())
+        constraints.append(mass_constraint)
+        
+        # require length < 0.35
+        flow_range_constraint = NonlinearConstraint(self.heat_exchanger.calc_mdot, 
+                                                    [cold_side_compressor_characteristic_2024[0,0],hot_side_compressor_characteristic_2024[0,0]], 
+                                                    [cold_side_compressor_characteristic_2024[0,-1],hot_side_compressor_characteristic_2024[0,-1]], 
+                                                    jac='2-point', hess=BFGS())
+        constraints.append(flow_range_constraint)
+
+        self.constraints = constraints
 
     def objective_function(self, x):
 
@@ -227,3 +228,47 @@ class Optimise_Worker(QRunnable):
 
         self.signal.finished.emit(result)
 
+
+class Brute_Force_Worker(QRunnable):
+    def __init__(self, heat_exchanger, id = 0):
+        super().__init__()
+        QObject.__init__(self)
+
+        self.heat_exchanger = heat_exchanger
+        self.id = id
+        self.cancelled = False
+
+        self.signal = Worker_Signals()
+
+
+    def run(self):
+
+        max_tubes = 24
+        max_baffles_per_section = 30
+
+        max_tubes_per_section = max_tubes // self.heat_exchanger.hot_flow_sections
+        
+        best_design = copy.deepcopy(self.heat_exchanger)
+        best_design.Qdot = 0
+
+        for tubes in range(1, max_tubes_per_section):
+            for baffles in range(1, max_baffles_per_section):
+
+                self.heat_exchanger.set_geometry(0.35, tubes, baffles)
+                result = self.heat_exchanger.compute_effectiveness(method = 'LMTD')
+
+                if not result:
+                    continue
+
+                if self.heat_exchanger.Qdot > best_design.Qdot:
+                    best_design = copy.deepcopy(self.heat_exchanger)
+
+                self.signal.iteration_update.emit(self.heat_exchanger)
+
+                if self.cancelled:
+                    return
+        
+        self.signal.finished.emit(
+            Optimise_Result(best_design, True)
+            )
+        

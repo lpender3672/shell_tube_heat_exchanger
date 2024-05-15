@@ -1,6 +1,8 @@
 import numpy as np
 from enum import Enum
 
+from matplotlib import pyplot as plt
+
 class Pattern(Enum):
     TRIANGLE = 1
     SQUARE = 2
@@ -160,3 +162,17 @@ rho_abs = 2.39 # kg / m2
 rho_resin = 1150 # kg / m3
 m_small_O = 0.0008
 m_large_O = 0.0053
+
+
+if __name__ == "__main__":
+
+    plt.plot(cold_side_compressor_characteristic_2024[0], cold_side_compressor_characteristic_2024[1], label = "Cold side")
+    plt.plot(hot_side_compressor_characteristic_2024[0], hot_side_compressor_characteristic_2024[1], label = "Hot side")
+
+    plt.xlabel("Mass flow rate (kg/s)")
+    plt.ylabel("Pressure drop (Bar)")
+    
+    plt.legend()
+    plt.grid()
+    plt.show()
+
