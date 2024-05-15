@@ -14,6 +14,7 @@ from heat_exchanger import Heat_Exchanger
 from diagram import Heat_Exchanger_Diagram, Heat_Exchanger_Definition
 from fluid_path import Fluid_Path, Entry_Constriction, Exit_Expansion, U_Bend, Heat_Transfer_Element
 from optimiser import Optimise_Widget
+from results import Results_Widget
 
 ## Hydraulic Analysis
 
@@ -28,7 +29,7 @@ class MainWindow(QMainWindow):
         if self.icon: # check if file found
             self.setWindowIcon(self.icon)
 
-        self.setGeometry(100, 100, 800, 800)
+        self.setGeometry(100, 100, 1600, 800)
 
         layout = QtWidgets.QGridLayout()
 
@@ -45,10 +46,22 @@ class MainWindow(QMainWindow):
         diagram_label = QLabel("Heat Exchanger Diagram")
 
         self.HE_diagram.setFixedWidth(600)
+        
+        self.results_widget = Results_Widget()
+
+        self.optimise_widget.iteration_update.connect(
+            self.results_widget.convergence_graph.new_data
+            )
+
+    
         layout.addWidget(diagram_label, 0, 2, 1, 1)
         layout.addWidget(self.HE_diagram, 1, 2, 4, 1)
 
         layout.addWidget(self.optimise_widget, 1, 0, 1, 2)
+
+        layout.addWidget(self.results_widget, 0, 3, 4, 2)
+
+
 
 
         # set the central widget of the Window
@@ -64,7 +77,8 @@ class MainWindow(QMainWindow):
 
         self.optimise_widget.set_design_template(HXchanger)
         self.optimise_widget.set_conditions([20,60])
-
+        
+        """
         print(HXchanger.calc_mass())
         HXchanger.set_conditions([20,60])
         success = HXchanger.compute_effectiveness(method='LMTD')
@@ -78,6 +92,7 @@ class MainWindow(QMainWindow):
         if success:
             print(HXchanger.Qdot)
             print(HXchanger.NTU)
+        """
 
 
         self.HE_definition.load_heat_exchanger(HXchanger)

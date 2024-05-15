@@ -164,6 +164,8 @@ m_small_O = 0.0008
 m_large_O = 0.0053
 
 
+num_threads = 4
+
 if __name__ == "__main__":
 
     plt.plot(cold_side_compressor_characteristic_2024[0], cold_side_compressor_characteristic_2024[1], label = "Cold side")

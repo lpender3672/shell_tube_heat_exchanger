@@ -20,8 +20,9 @@ class Optimise_Result():
 
 
 class Optimise_Widget(QWidget):
+    iteration_update = pyqtSignal(Heat_Exchanger)
 
-    def __init__(self, num_threads = 4):
+    def __init__(self):
         super().__init__()
 
         self.num_threads = num_threads
@@ -81,9 +82,10 @@ class Optimise_Widget(QWidget):
         for i in range(self.num_threads):
             heat_exchanger = self.template.get_random_geometry_copy()
             heat_exchanger.set_conditions(self.conditions)
+            heat_exchanger.id = i
 
             # scipy optimse worker
-            worker = Scipy_Optimise_Worker(heat_exchanger, i)
+            worker = Scipy_Optimise_Worker(heat_exchanger)
             worker.build_constraints()
             
             worker.signal.iteration_update.connect(self.on_iteration_update)
@@ -97,8 +99,7 @@ class Optimise_Widget(QWidget):
         
 
     def on_iteration_update(self, heat_exchanger):
-        # update graphs
-        pass
+        self.iteration_update.emit(heat_exchanger)
 
 
     def on_optimisation_finished(self, result):
@@ -119,7 +120,6 @@ class Optimise_Widget(QWidget):
             print(f"mdot_cold = {result.heat_exchanger.mdot[0]}, mdot_hot = {result.heat_exchanger.mdot[1]}")
             print(f"Qdot = {result.heat_exchanger.Qdot}, effectiveness = {result.heat_exchanger.effectiveness}")
 
- 
     def cancel_optimise(self):
         self.start_optimise_button.setEnabled(True)
         self.cancel_optimise_button.setEnabled(False)
@@ -131,12 +131,11 @@ class Worker_Signals(QObject):
 
 class Scipy_Optimise_Worker(QRunnable):
 
-    def __init__(self, heat_exchanger, id = 0):
+    def __init__(self, heat_exchanger):
         super().__init__()
         QObject.__init__(self)
 
         self.heat_exchanger = heat_exchanger
-        self.id = id
         self.cancelled = False
 
         self.signal = Worker_Signals()

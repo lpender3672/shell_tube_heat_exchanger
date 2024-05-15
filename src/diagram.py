@@ -1,6 +1,6 @@
 
-from PyQt6.QtWidgets import QWidget, QApplication, QFrame
-from PyQt6.QtGui import QPainter, QPen, QBrush, QPolygon
+from PyQt6.QtWidgets import QWidget
+from PyQt6.QtGui import QPainter, QPen, QBrush
 from PyQt6.QtCore import Qt, QPoint, pyqtSignal
 from PyQt6.QtWidgets import QLineEdit, QGridLayout, QVBoxLayout, QLabel, QPushButton, QSpinBox
 
