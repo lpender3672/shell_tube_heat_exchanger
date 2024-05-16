@@ -243,26 +243,25 @@ class Heat_Exchanger():
             if isinstance(element, Heat_Transfer_Element):
                 
                 if element.pattern == Pattern.SQUARE:
-                    a_factor = a_square
+                    effective_d_shell = 1.27/D_outer_tube * (self.pitch**2 - 0.785 * D_outer_tube**2) * self.cold_flow_sections**(-1/2)
                 elif element.pattern == Pattern.TRIANGLE:
-                    a_factor = a_triangle
+                    effective_d_shell = 1.10/D_outer_tube * (self.pitch**2 - 0.917 * D_outer_tube**2) * self.cold_flow_sections**(-1/2)
                 else:
                     print("Error: Unknown pattern")
 
                 B_spacing = self.L_hot_tube / (element.baffles + 1)
                 A_shell_effective = (self.pitch - D_outer_tube) * \
-                    B_spacing * D_shell / self.pitch
+                    B_spacing * D_shell / (self.pitch * self.cold_flow_sections)
 
-                A_section = A_shell_effective / self.cold_flow_sections
+                v_shell = mdot_cold / (rho_w * A_shell_effective)
 
-                v_shell = mdot_cold / (rho_w * A_section)
+                Re_shell = v_shell * rho_w * effective_d_shell / mu
 
-                effective_d_section = D_shell * A_section / A_shell
-                Re_shell = v_shell * rho_w * effective_d_section / mu
+                j_f = 0.202 * Re_shell**(-0.153)
 
-                DP_cold += 4 * a_factor * \
-                    Re_shell ** (-0.15) * element.tubes * rho_w * v_shell ** 2
-
+                DP_cold += 4 * j_f * (D_shell / effective_d_shell) * (element.baffles + 1) \
+                    * rho_w * v_shell ** 2
+            
             if isinstance(element, U_Bend):
 
                 try:
@@ -330,22 +329,24 @@ class Heat_Exchanger():
             # obtain the heat transfer coefficient for the inner and outer tubes
 
             if element.pattern == Pattern.SQUARE:
-                c_factor = c_square
+                effective_d_shell = 1.27/D_outer_tube * (self.pitch**2 - 0.785 * D_outer_tube**2) * self.cold_flow_sections**(-1/2)
             elif element.pattern == Pattern.TRIANGLE:
-                c_factor = c_triangle
+                effective_d_shell = 1.10/D_outer_tube * (self.pitch**2 - 0.917 * D_outer_tube**2) * self.cold_flow_sections**(-1/2)
             else:
                 print("Error: Unknown pattern")
 
             B_spacing = self.L_hot_tube / (element.baffles + 1)
             A_shell_effective = (self.pitch - D_outer_tube) * \
-                B_spacing * D_shell / self.pitch
+                B_spacing * D_shell / (self.pitch* self.cold_flow_sections)
             
             v_shell = mdot_cold / (rho_w * A_shell_effective)
-            effective_d_shell = D_shell * A_shell_effective / A_shell
+
             Re_shell = v_shell * rho_w * effective_d_shell / mu
 
-            Nu_i = 0.023 * Re_hot ** 0.8 * Pr ** 0.3
-            Nu_o = c_factor * Re_shell ** 0.6 * Pr ** 0.3
+            j_h = 0.4275*Re_shell**(-0.466)
+
+            Nu_i = 0.023 * Re_hot ** 0.8 * Pr ** 0.33
+            Nu_o = j_h * Re_shell * Pr ** 0.33
 
             h_i = Nu_i * k_w / D_inner_tube
             h_o = Nu_o * k_w / D_outer_tube
@@ -485,7 +486,7 @@ class Heat_Exchanger():
 
     def calc_mass(self, *args):
         
-        baffle_area_occlusion_ratio = 0.8
+        baffle_area_occlusion_ratio = 0.75
 
         mpipes = self.total_tubes * self.L_hot_tube * rho_copper_tube
         mshell = self.L_hot_tube * rho_acrylic_tube
@@ -519,7 +520,7 @@ class Heat_Exchanger():
                 element.baffles = baffles
 
                 self.total_tubes += element.tubes
-                self.total_baffles += element.baffles
+                
 
                 pattern = element.pattern
 
@@ -527,6 +528,7 @@ class Heat_Exchanger():
             if isinstance(element, Heat_Transfer_Element):
                 element.tubes = tubes
                 element.baffles = baffles
+                self.total_baffles += element.baffles
 
 
         self.pitch = pitch_from_tubes(tubes, pattern)
