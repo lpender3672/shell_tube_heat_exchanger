@@ -25,10 +25,10 @@ class Convergence_Graph(QWidget):
 
         self.data = [[] for _ in range(num_threads)]
 
-    def new_data(self, heat_exchanger):
+    def new_data(self, qdot):
 
-        id = heat_exchanger.id
-        self.data[id].append(heat_exchanger.Qdot)
+        id = 0
+        self.data[id].append(qdot)
 
         self.plot()
     

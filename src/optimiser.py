@@ -21,7 +21,7 @@ class Optimise_Result():
 
 
 class Optimise_Widget(QWidget):
-    iteration_update = pyqtSignal(Heat_Exchanger)
+    iteration_update = pyqtSignal(float)
 
     def __init__(self):
         super().__init__()
@@ -86,8 +86,15 @@ class Optimise_Widget(QWidget):
             heat_exchanger.id = i
 
             # scipy optimse worker
-            worker = Scipy_Global_Optimise_Worker(heat_exchanger)
-            worker.build_constraints()
+            # worker = Scipy_Optimise_Worker(heat_exchanger)
+            # worker.build_constraints()
+
+            # scipy global optimise worker
+            # worker = Scipy_Global_Optimise_Worker(heat_exchanger)
+            # worker.build_constraints()
+
+            # brute force worker
+            worker = Brute_Force_Worker(heat_exchanger)
             
             worker.signal.iteration_update.connect(self.on_iteration_update)
             worker.signal.finished.connect(self.on_optimisation_finished)
@@ -99,8 +106,8 @@ class Optimise_Widget(QWidget):
         print("Optimisation started")
         
 
-    def on_iteration_update(self, heat_exchanger):
-        self.iteration_update.emit(heat_exchanger)
+    def on_iteration_update(self, qdot):
+        self.iteration_update.emit(qdot)
 
 
     def on_optimisation_finished(self, result):
@@ -130,7 +137,7 @@ class Optimise_Widget(QWidget):
 
 
 class Worker_Signals(QObject):
-    iteration_update = pyqtSignal(Heat_Exchanger)
+    iteration_update = pyqtSignal(float)
     finished = pyqtSignal(Optimise_Result)
 
 class Scipy_Optimise_Worker(QRunnable):
@@ -195,7 +202,7 @@ class Scipy_Optimise_Worker(QRunnable):
 
         #if not result:  return np.inf
         if self.iteration_count % self.emit_interval == 0:
-            self.signal.iteration_update.emit(self.heat_exchanger)
+            self.signal.iteration_update.emit(self.heat_exchanger.Qdot)
         self.iteration_count += 1
 
         return 1e4 / self.heat_exchanger.Qdot
@@ -301,6 +308,13 @@ class Brute_Force_Worker(QRunnable):
 
         self.signal = Worker_Signals()
 
+    def check_constraints(self):
+
+        if self.heat_exchanger.calc_mass() > 1.20:
+            return False
+
+        return True
+
 
     def run(self):
 
@@ -312,19 +326,23 @@ class Brute_Force_Worker(QRunnable):
         best_design = copy.deepcopy(self.heat_exchanger)
         best_design.Qdot = 0
 
-        for tubes in range(1, max_tubes_per_section):
-            for baffles in range(1, max_baffles_per_section):
+        
+        for baffles in range(1, max_baffles_per_section):
+            for tubes in range(1, max_tubes_per_section):
 
                 self.heat_exchanger.set_geometry(0.35, tubes, baffles)
+
+                if not self.check_constraints():
+                    continue
+
                 result = self.heat_exchanger.compute_effectiveness(method = 'LMTD')
+                self.signal.iteration_update.emit(self.heat_exchanger.Qdot)
 
                 if not result:
                     continue
 
                 if self.heat_exchanger.Qdot > best_design.Qdot:
                     best_design = copy.deepcopy(self.heat_exchanger)
-
-                self.signal.iteration_update.emit(self.heat_exchanger)
 
                 if self.cancelled:
                     return

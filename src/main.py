@@ -62,8 +62,6 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.results_widget, 0, 3, 4, 2)
 
 
-
-
         # set the central widget of the Window
 
         widget = QtWidgets.QWidget()
@@ -73,7 +71,7 @@ class MainWindow(QMainWindow):
 
         self.show()
 
-        HXchanger = self.HE_definition.set_heat_exchanger(1, 1, 13, 9)
+        HXchanger = self.HE_definition.set_heat_exchanger(1, 1, 13, 9, Side.OPPOSITE)
 
         self.optimise_widget.set_design_template(HXchanger)
         self.optimise_widget.set_conditions([20,60])

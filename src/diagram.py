@@ -109,11 +109,12 @@ class Heat_Exchanger_Definition(QWidget):
 
         self.HE_update_signal.emit(heat_exchanger)
     
-    def set_heat_exchanger(self, cold_stages, hot_stages, tubes, baffles):
+    def set_heat_exchanger(self, cold_stages, hot_stages, tubes, baffles, flow_path_entries_side):
         self.hot_stages_input.setValue(hot_stages)
         self.cold_stages_input.setValue(cold_stages)
         self.tubes_input.setValue(tubes)
         self.baffles_input.setValue(baffles)
+        self.input_side.setCurrentValue(flow_path_entries_side)
 
         return self.update_heat_exchanger()
 
