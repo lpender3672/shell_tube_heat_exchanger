@@ -36,9 +36,15 @@ def dp_from_cold_mass_flow(mdot_cold):
 
 def dp_from_hot_mass_flow(mdot_hot):
         
+<<<<<<< HEAD
         return np.interp(mdot_hot * 1000 / rho_w,
+                        hot_side_compressor_characteristic_2024[0],
+                        hot_side_compressor_characteristic_2024[1]) * 1e5  # Pa
+=======
+            return np.interp(mdot_hot * 1000 / rho_w,
                             np.fliplr(hot_side_compressor_characteristic_2024)[0],
                             np.fliplr(hot_side_compressor_characteristic_2024)[1]) * 1e5  # Pa
+>>>>>>> 99c6a52ed638fa7819dd2bcb7dd49e553b506379
 
 def logmeanT(T1in, T1out, T2in, T2out):
     dt1 = (T2in - T1out)
@@ -135,7 +141,11 @@ class Heat_Exchanger():
         self.hot_flow_sections = hot_side_bends + 1
 
         # initial values
+<<<<<<< HEAD
+        self.mdot = [0.6, 0.8]
+=======
         self.mdot = [0.3, 0.25]
+>>>>>>> 99c6a52ed638fa7819dd2bcb7dd49e553b506379
 
         self.L_hot_tube = 0.35
 
@@ -298,9 +308,12 @@ class Heat_Exchanger():
         new_mdot_cold = cold_mass_flow_from_dp(dp_cold)
         new_mdot_hot = hot_mass_flow_from_dp(dp_hot)
 
+<<<<<<< HEAD
         error = [new_mdot_cold - mdot_cold, new_mdot_hot - mdot_hot]
 
         return error
+=======
+        return cold_rel_dp, hot_rel_dp
     
     def hydraulic_iteration_squared(self, mdot):
         mdot_cold, mdot_hot = mdot
@@ -311,6 +324,7 @@ class Heat_Exchanger():
         hot_rel_dp = dp_from_hot_mass_flow(mdot_hot) - dp_hot
 
         return cold_rel_dp**2 + hot_rel_dp**2
+>>>>>>> 99c6a52ed638fa7819dd2bcb7dd49e553b506379
 
     def calc_area_times_H(self, mdot):
         mdot_cold, mdot_hot = mdot
@@ -382,6 +396,7 @@ class Heat_Exchanger():
 
         return [hot_eq, cold_eq]
 
+<<<<<<< HEAD
 
     def calc_mdot(self, x = None):
 
@@ -398,9 +413,10 @@ class Heat_Exchanger():
 
         return mdot
 
-    def compute_effectiveness(self, method = "LMTD", optimiser = 'brute'):
-
-        # HYDRAULIC ANALYSIS
+    def compute_effectiveness(self, method = "LMTD"):
+=======
+    def compute_effectiveness(self, method = "LMTD", optimiser="brute"):
+>>>>>>> 99c6a52ed638fa7819dd2bcb7dd49e553b506379
 
         if (optimiser =='brute'):
             try:
@@ -412,7 +428,7 @@ class Heat_Exchanger():
                 print("Failed to solve hydraulic analsis")
                 print(e)
                 return False
-        if (optimiser == 'fsolve'):
+        if(optimiser == 'fsolve'):
             try:
                 self.mdot = fsolve(self.hydraulic_iteration,self.mdot)
                 assert np.isfinite(self.mdot).all()
@@ -494,7 +510,7 @@ class Heat_Exchanger():
 
         m_baffles = baffle_area_occlusion_ratio * A_shell * rho_abs * self.total_baffles / self.cold_flow_sections
         
-        m_caps = 2 * 0.01 * A_shell * rho_abs # TODO: check end cap mass and inlcude mass of hot and cold section dividers
+        m_caps = 2 * 0.01 * A_shell * rho_abs # TODO: check end cap mass
 
         return (
             mpipes +
@@ -542,4 +558,3 @@ class Heat_Exchanger():
                             np.random.randint(1, 20))
 
         return new_HE
-
