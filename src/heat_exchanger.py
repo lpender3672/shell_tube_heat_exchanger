@@ -65,7 +65,8 @@ def E_NTU(NTU, C_rel, N_shell, N_tube):
         e = None
     return e
 
-def GET_F(T1in, T2in, T1out, T2out, N):
+def GET_F(T1in, T2in, T1out, T2out, N, flow_path_entries_side):
+    # reference? 
     ## only for even tube passes
     if N > 1:
         p = (T1out - T1in)/(T2in - T1in)
@@ -80,7 +81,23 @@ def GET_F(T1in, T2in, T1out, T2out, N):
             u = (N - N*p)/(N - N*p + p)
             F = 2**(1/2)*((1-u)/u)*(np.log((u/(1-u) + 2**-(1/2))/((u/(1-u) - 2**-(1/2)))))**(-1)
     elif N == 1:
-        F = 1
+
+        if flow_path_entries_side == Side.OPPOSITE:
+            F = 1
+        else:
+            raise NotImplementedError("F for coflow not implemented yet")
+            # page 1286 of Holman, J. P. “Heat Transfer”. 8th Edition, McGraw Hill.
+            # doesnt converge
+            p = (T1out - T1in)/(T2in - T1in)
+            r = (T2in - T2out)/(T1out - T1in)
+            if r == 1:
+                F = 2 * p / ((p - 1) * np.log(1 - 2*p))
+            else:
+                F = (r + 1) * np.log((1 - r * p) / (1 - p)) / ((r - 1) * np.log(1 - p * (1 + r)))
+            print(F)
+    else:
+        print("Error: F undefined for this configuration")
+        F = None
 
     return F
 
@@ -140,6 +157,8 @@ class Heat_Exchanger():
         self.L_hot_tube = 0.35
 
         self.pitch = pitch_from_tubes(self.total_tubes, pattern)
+        if self.pitch < D_outer_tube:
+            print("Warning: Pitch is less than the tube diameter")
         #self.pitch = 0.014
 
         self.hydraulic_iteration_count = 0
@@ -271,8 +290,7 @@ class Heat_Exchanger():
                     raise ValueError("U Bend must be preceded by a heat transfer element")
                 
                 B_spacing = self.L_hot_tube / (prev_element.baffles + 1)
-                A_shell_effective = (self.pitch - D_outer_tube) * \
-                    B_spacing * D_shell / self.pitch
+                A_shell_effective = (self.pitch - D_outer_tube) * B_spacing * D_shell / self.pitch
 
                 A_section = A_shell_effective / self.cold_flow_sections
 
@@ -366,11 +384,9 @@ class Heat_Exchanger():
         T1in, T2in = self.Tin
         T1out, T2out = Tout  # cold and hot outlet temperatures
         
-        # TODO: calculate this for various N values
-        if self.cold_flow_sections == 1:
-            Fscale = 1
-        elif self.cold_flow_sections >= 2:
-            Fscale = GET_F(T1in, T2in, T1out, T2out, self.cold_flow_sections)
+        # TODO: calculate this for various cold flow sections
+
+        Fscale = GET_F(T1in, T2in, T1out, T2out, self.hot_flow_sections, self.flow_path_entries_side)
         
         T1in, T2in = self.Tin
 
@@ -532,6 +548,9 @@ class Heat_Exchanger():
 
 
         self.pitch = pitch_from_tubes(tubes, pattern)
+
+        if self.pitch < D_outer_tube:
+            print("Warning: Pitch is less than the tube diameter")
 
     
     def get_random_geometry_copy(self, constraints = None):

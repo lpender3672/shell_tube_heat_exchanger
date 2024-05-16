@@ -245,7 +245,7 @@ class Scipy_Global_Optimise_Worker(QRunnable):
 
         self.signal = Worker_Signals()
 
-    def objective_function(self, x):
+    def objective_function(self, x, *args):
 
         self.heat_exchanger.set_geometry(0.35, x[0], x[1])    
         result = self.heat_exchanger.compute_effectiveness(method = 'LMTD')
