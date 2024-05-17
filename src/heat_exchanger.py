@@ -66,7 +66,7 @@ def E_NTU(NTU, C_rel, N_shell, N_tube):
     return e
 
 def GET_F(T1in, T2in, T1out, T2out, N, flow_path_entries_side):
-    # reference? 
+    # Chemical Engineering Design (6th edition 2020)
     ## only for even tube passes
     if N > 1:
         p = (T1out - T1in)/(T2in - T1in)
@@ -154,7 +154,7 @@ class Heat_Exchanger():
         # initial values
         self.mdot = [0.3, 0.25]
 
-        self.L_hot_tube = 0.35
+        self.L_hot_tube = 0.35 - 2 * end_cap_width
 
         self.pitch = pitch_from_tubes(self.total_tubes, pattern)
         if self.pitch < D_outer_tube:
@@ -505,20 +505,26 @@ class Heat_Exchanger():
         baffle_area_occlusion_ratio = 0.75
 
         mpipes = self.total_tubes * self.L_hot_tube * rho_copper_tube
-        mshell = self.L_hot_tube * rho_acrylic_tube
+        mshell = (self.L_hot_tube + end_cap_width_nozzle)* rho_acrylic_tube
 
         m_seals = 4 * (m_nozzle + m_large_O + self.total_tubes * m_small_O)
 
         m_baffles = baffle_area_occlusion_ratio * A_shell * rho_abs * self.total_baffles / self.cold_flow_sections
         
-        m_caps = 2 * 0.01 * A_shell * rho_abs # TODO: check end cap mass and inlcude mass of hot and cold section dividers
+        m_caps = 2 * end_cap_width * A_shell * rho_abs # TODO: check end cap mass and inlcude mass of hot and cold section dividers
+
+        m_seperator = (self.cold_flow_sections - 1) * (self.L_hot_tube - end_cap_width_nozzle) * (D_shell) * rho_abs
+        if self.cold_flow_sections > 2:
+            print("Warning: Cold flow sections is greater than 2, this is not supported")
+
 
         return (
             mpipes +
             mshell +
             m_seals +
             m_baffles +
-            m_caps
+            m_caps + 
+            m_seperator
         )
 
 

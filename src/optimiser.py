@@ -123,7 +123,7 @@ class Optimise_Widget(QWidget):
 
             mass = result.heat_exchanger.calc_mass()
 
-            print(f"L = {L}, tubes per stage = {tubes}, baffles per stage = {baffles}, mass = {mass}")
+            print(f"L_tube = {L}, tubes per stage = {tubes}, baffles per stage = {baffles}, mass = {mass}")
             print(f"mdot_cold = {result.heat_exchanger.mdot[0]}, mdot_hot = {result.heat_exchanger.mdot[1]}")
             print(f"Qdot = {result.heat_exchanger.Qdot}, effectiveness = {result.heat_exchanger.effectiveness}")
         
@@ -311,7 +311,6 @@ class Scipy_Global_Optimise_Worker(QRunnable):
 class Brute_Force_Worker(QRunnable):
     def __init__(self, heat_exchanger, id = 0):
         super().__init__()
-        QObject.__init__(self)
 
         self.heat_exchanger = heat_exchanger
         self.id = id
@@ -337,29 +336,34 @@ class Brute_Force_Worker(QRunnable):
         best_design = copy.deepcopy(self.heat_exchanger)
         best_design.Qdot = 0
 
+        print(max_tubes_per_section)
+
+        lengths = np.linspace(0.15, 0.35 - 2 * end_cap_width, 20)
         
         for baffles in range(1, max_baffles_per_section):
             for tubes in range(1, max_tubes_per_section):
 
-                self.heat_exchanger.set_geometry(0.35, tubes, baffles)
+                for l in lengths:
 
-                if not self.check_constraints():
-                    continue
+                    self.heat_exchanger.set_geometry(l, tubes, baffles)
 
-                result = self.heat_exchanger.compute_effectiveness(method = 'LMTD')
-                
-                output = [self.heat_exchanger.Qdot, self.heat_exchanger.effectiveness]
-                x = [tubes, baffles]
-                self.signal.iteration_update.emit([x, output])
+                    if not self.check_constraints():
+                        continue
 
-                if not result:
-                    continue
+                    result = self.heat_exchanger.compute_effectiveness(method = 'LMTD', optimiser = "fsolve")
+                    
+                    output = [self.heat_exchanger.Qdot, self.heat_exchanger.effectiveness]
+                    x = [tubes, baffles]
+                    self.signal.iteration_update.emit([x, output])
 
-                if self.heat_exchanger.Qdot > best_design.Qdot:
-                    best_design = copy.deepcopy(self.heat_exchanger)
+                    if not result:
+                        continue
 
-                if self.cancelled:
-                    return
+                    if self.heat_exchanger.Qdot > best_design.Qdot:
+                        best_design = copy.deepcopy(self.heat_exchanger)
+
+                    if self.cancelled:
+                        return
         
         self.signal.finished.emit(
             Optimise_Result(best_design, True)

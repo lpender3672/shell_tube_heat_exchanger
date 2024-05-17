@@ -74,14 +74,12 @@ class State_Space_Graph(QWidget):
     
     def new_data(self, data):
 
-        print(data)
-
         Qdot = data[1][0]
         tubes, baffles = data[0]
         
         # add new data to graph without clearing
         # get colour from Qdot
-        c = plt.cm.jet((Qdot - 2000) / 18000)
+        c = plt.cm.jet((Qdot - 2000) / 25000)
         self.ax.plot(tubes, baffles, 'o', color = c)
         self.ax.grid()
         self.canvas.draw_idle()

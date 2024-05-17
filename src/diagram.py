@@ -77,6 +77,9 @@ class Heat_Exchanger_Definition(QWidget):
         self.tubes_input = QSpinBox()
         self.tubes_input.setMinimum(1)
 
+        self.length_label = QLabel("Length (m):")
+        self.length_input = QLineEdit()
+
         layout.addWidget(self.label, 0, 0, 1, 2)
         layout.addWidget(self.hot_stages_label, 1, 0)
         layout.addWidget(self.hot_stages_input, 1, 1)
@@ -91,6 +94,8 @@ class Heat_Exchanger_Definition(QWidget):
         layout.addWidget(self.tubes_label, 5, 0)
         layout.addWidget(self.tubes_input, 5, 1)
 
+        layout.addWidget(self.length_label, 6, 0)
+        layout.addWidget(self.length_input, 6, 1)
 
         self.setLayout(layout)
 
@@ -100,6 +105,7 @@ class Heat_Exchanger_Definition(QWidget):
         self.tube_pattern.enum_update_signal.connect(self.update_heat_exchanger)
         self.baffles_input.valueChanged.connect(self.update_heat_exchanger)
         self.tubes_input.valueChanged.connect(self.update_heat_exchanger)
+        self.length_input.editingFinished.connect(self.update_heat_exchanger)
 
     def load_heat_exchanger(self, heat_exchanger):
         self.hot_stages_input.setValue(heat_exchanger.hot_flow_sections)
@@ -111,15 +117,18 @@ class Heat_Exchanger_Definition(QWidget):
         self.baffles_input.setValue(heat_exchanger.hot_path.elements[1].baffles)
         self.tubes_input.setValue(heat_exchanger.hot_path.elements[1].tubes)
 
+        self.length_input.setText(str(heat_exchanger.L_hot_tube))
+
         self.HE_update_signal.emit(heat_exchanger)
     
-    def set_heat_exchanger(self, cold_stages, hot_stages, tubes, baffles, flow_path_entries_side, pattern):
+    def set_heat_exchanger(self, cold_stages, hot_stages, tubes, baffles, length, flow_path_entries_side, pattern):
         self.hot_stages_input.setValue(hot_stages)
         self.cold_stages_input.setValue(cold_stages)
         self.tubes_input.setValue(tubes)
         self.baffles_input.setValue(baffles)
         self.input_side.setCurrentValue(flow_path_entries_side)
         self.tube_pattern.setCurrentValue(pattern)
+        self.length_input.setText(str(length))
 
         return self.update_heat_exchanger()
 
@@ -133,7 +142,14 @@ class Heat_Exchanger_Definition(QWidget):
 
         tubes_per_stage = self.tubes_input.value()
         baffles_per_stage = self.baffles_input.value()
-            
+        length = self.length_input.text()
+        
+        try:
+            length = float(length)
+        except ValueError:
+            print("Enter a number you fool")
+
+
         Hot_path = Fluid_Path(rho_w, mu, cp, k_w)
         Hot_path.add_element(Entry_Constriction())
         Hot_path.add_element(
@@ -173,6 +189,8 @@ class Heat_Exchanger_Definition(QWidget):
 
         HEchanger = Heat_Exchanger(Cold_path, Hot_path, 
                                 flow_path_entries_side)
+        
+        HEchanger.L_hot_tube = length
 
         self.HE_update_signal.emit(HEchanger)
 
@@ -270,8 +288,6 @@ class Heat_Exchanger_Diagram(QWidget):
     def recompute(self):
 
 
-        print("recomputing effectiveness")
-
         try:
             T1in = float(self.cold_inlet_box.text())
             T2in = float(self.hot_inlet_box.text())
@@ -280,7 +296,7 @@ class Heat_Exchanger_Diagram(QWidget):
 
         self.heat_exchanger.set_conditions([T1in, T2in])
         res = self.heat_exchanger.compute_effectiveness(
-            method='LMTD'
+            method='LMTD', optimiser = 'fsolve'
         )
 
         if not res:

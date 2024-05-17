@@ -65,7 +65,7 @@ class MainWindow(QMainWindow):
 
         self.show()
 
-        HXchanger = self.HE_definition.set_heat_exchanger(1, 2, 13, 9, Side.OPPOSITE, Pattern.SQUARE)
+        HXchanger = self.HE_definition.set_heat_exchanger(1, 2, 13, 9, 0.3, Side.OPPOSITE, Pattern.SQUARE)
 
         self.optimise_widget.set_design_template(HXchanger)
         self.optimise_widget.set_conditions([20,60])
