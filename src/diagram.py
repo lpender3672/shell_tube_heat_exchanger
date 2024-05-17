@@ -59,14 +59,12 @@ class Heat_Exchanger_Definition(QWidget):
         self.input_side = Cycle_Button(self, "Input Side", Side)
 
         self.stage_table = QTableWidget()
-        self.stage_table.setRowCount(2)
-        self.stage_table.setColumnCount(4) # tubes, pattern,  baffles, pattern
-        self.stage_table.setHorizontalHeaderLabels(["Baffles", "Pattern", "Tubes", "Pattern"])
-        self.stage_table.setVerticalHeaderLabels(["Pass 1", ""])
+        
+        self.reset_table()
 
-        self.stage_table.setCellWidget(0, 0, QSpinBox(self.stage_table, value=1))
+        self.stage_table.setCellWidget(0, 0, QSpinBox(self.stage_table, minimum=1))
         self.stage_table.setCellWidget(0, 1, Cycle_Button(self.stage_table, "Tube Pattern", Pattern))
-        self.stage_table.setCellWidget(0, 2, QSpinBox(self.stage_table, value=1))
+        self.stage_table.setCellWidget(0, 2, QSpinBox(self.stage_table, minimum=1))
         self.stage_table.setCellWidget(0, 3, Cycle_Button(self.stage_table, "Tube Pattern", Pattern))
 
         self.stage_table.cellWidget(0, 0).valueChanged.connect(self.update_heat_exchanger)
@@ -132,7 +130,7 @@ class Heat_Exchanger_Definition(QWidget):
             self.cold_passes += 1
             self.stage_table.setSpan(row, 0, 1, 1)
 
-            self.stage_table.setCellWidget(row, 0, QSpinBox(self.stage_table, value=1))
+            self.stage_table.setCellWidget(row, 0, QSpinBox(self.stage_table, minimum=1))
             self.stage_table.setCellWidget(row, 1, Cycle_Button(self.stage_table, "Tube Pattern", Pattern))
 
             self.stage_table.cellWidget(row, 0).valueChanged.connect(self.update_heat_exchanger)
@@ -149,7 +147,7 @@ class Heat_Exchanger_Definition(QWidget):
             self.hot_passes += 1
             self.stage_table.setSpan(row, 2, 1, 1)
 
-            self.stage_table.setCellWidget(row, 2, QSpinBox(self.stage_table, value=1))
+            self.stage_table.setCellWidget(row, 2, QSpinBox(self.stage_table, minimum=1))
             self.stage_table.setCellWidget(row, 3, Cycle_Button(self.stage_table, "Tube Pattern", Pattern))
 
             self.stage_table.cellWidget(row, 2).valueChanged.connect(self.update_heat_exchanger)
@@ -207,34 +205,50 @@ class Heat_Exchanger_Definition(QWidget):
         self.stage_table.resizeColumnsToContents()
         self.stage_table.resizeRowsToContents()
 
+    def reset_table(self):
+
+        self.stage_table.setRowCount(2)
+        self.stage_table.setColumnCount(4) # tubes, pattern,  baffles, pattern
+        self.stage_table.setHorizontalHeaderLabels(["Baffles", "Pattern", "Tubes", "Pattern"])
+        self.stage_table.setVerticalHeaderLabels(["Pass 1", ""])
+
+        self.stage_table.setCellWidget(0, 0, QSpinBox(self.stage_table, minimum=1))
+        self.stage_table.setCellWidget(0, 1, Cycle_Button(self.stage_table, "Tube Pattern", Pattern))
+        self.stage_table.setCellWidget(0, 2, QSpinBox(self.stage_table, minimum=1))
+        self.stage_table.setCellWidget(0, 3, Cycle_Button(self.stage_table, "Tube Pattern", Pattern))
+
+        self.stage_table.cellWidget(0, 0).valueChanged.connect(self.update_heat_exchanger)
+        self.stage_table.cellWidget(0, 1).enum_update_signal.connect(self.update_heat_exchanger)
+        self.stage_table.cellWidget(0, 2).valueChanged.connect(self.update_heat_exchanger)
+        self.stage_table.cellWidget(0, 3).enum_update_signal.connect(self.update_heat_exchanger)
+
     def load_heat_exchanger(self, heat_exchanger):
-        #self.hot_stages_input.setValue(heat_exchanger.hot_flow_sections)
-        #self.cold_stages_input.setValue(heat_exchanger.cold_flow_sections)
+
+        self.reset_table()
+
+        for i in range(1, heat_exchanger.cold_flow_sections):
+            self.on_stage_cell_clicked(i, 0)
+        i = 0
+        for element in heat_exchanger.cold_path.elements:
+            if isinstance(element, Heat_Transfer_Element):
+                self.stage_table.cellWidget(i, 0).setValue(element.baffles)
+                self.stage_table.cellWidget(i, 1).setCurrentValue(element.pattern)
+                i += 1
+
+        for i in range(1, heat_exchanger.hot_flow_sections):
+            self.on_stage_cell_clicked(i, 2)
+        
+        i = 0
+        for element in heat_exchanger.hot_path.elements:
+            if isinstance(element, Heat_Transfer_Element):
+                self.stage_table.cellWidget(i, 2).setValue(element.tubes)
+                self.stage_table.cellWidget(i, 3).setCurrentValue(element.pattern)
+                i += 1
 
         self.input_side.setCurrentValue(heat_exchanger.flow_path_entries_side)
-        #self.tube_pattern.setCurrentValue(heat_exchanger.hot_path.elements[1].pattern)
-
-        #self.baffles_input.setValue(heat_exchanger.hot_path.elements[1].baffles)
-        #self.tubes_input.setValue(heat_exchanger.hot_path.elements[1].tubes)
-
         self.length_input.setText(str(heat_exchanger.L_hot_tube))
 
         self.HE_update_signal.emit(heat_exchanger)
-    
-    def set_heat_exchanger(self, cold_stages, hot_stages, tubes, baffles, length, flow_path_entries_side, pattern):
-
-        if isinstance(tubes, int):
-            tubes = [tubes for i in range(hot_stages)]
-
-        if isinstance(baffles, int):
-            baffles = [baffles for i in range(cold_stages)]
-
-        # fill in the table
-        self.input_side.setCurrentValue(flow_path_entries_side)
-
-        self.length_input.setText(str(length))
-
-        return self.update_heat_exchanger()
 
     def update_heat_exchanger(self):
 

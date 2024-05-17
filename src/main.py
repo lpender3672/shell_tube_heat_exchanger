@@ -10,7 +10,7 @@ ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 import numpy as np
 
 from constants import *
-from heat_exchanger import Heat_Exchanger
+from heat_exchanger import build_heat_exchanger
 from diagram import Heat_Exchanger_Diagram, Heat_Exchanger_Definition
 from fluid_path import Fluid_Path, Entry_Constriction, Exit_Expansion, U_Bend, Heat_Transfer_Element
 from optimiser import Optimise_Widget
@@ -65,7 +65,8 @@ class MainWindow(QMainWindow):
 
         self.show()
 
-        HXchanger = self.HE_definition.set_heat_exchanger(1, 2, 13, 9, 0.3, Side.OPPOSITE, Pattern.SQUARE)
+        HXchanger = build_heat_exchanger([13], [9], 0.35, Side.OPPOSITE, [Pattern.SQUARE])
+
 
         self.optimise_widget.set_design_template(HXchanger)
         self.optimise_widget.set_conditions([20,60])
