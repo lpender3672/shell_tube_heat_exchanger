@@ -90,15 +90,15 @@ class Optimise_Widget(QWidget):
             heat_exchanger.id = i
 
             # scipy optimse worker
-            worker = Scipy_Optimise_Worker(heat_exchanger)
-            worker.build_constraints()
+            # worker = Scipy_Optimise_Worker(heat_exchanger)
+            # worker.build_constraints()
 
             # scipy global optimise worker
             # worker = Scipy_Global_Optimise_Worker(heat_exchanger)
             # worker.build_constraints()
 
             # brute force worker
-            # worker = Brute_Force_Worker(heat_exchanger)
+            worker = Brute_Force_Worker(heat_exchanger)
 
             if self.iteration_callback:
                 worker.signal.iteration_update.connect(self.iteration_callback)

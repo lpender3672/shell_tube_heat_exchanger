@@ -303,10 +303,10 @@ class Heat_Exchanger_Diagram(QWidget):
         dpoints = 4
 
         self.cold_outlet_box.setText(
-            str(np.round(T1out,2))
+            str(np.round(T1out,1))
             )
         self.hot_outlet_box.setText(
-            str(np.round(T2out,2))
+            str(np.round(T2out,1))
             )
         
         self.mdot_cold_box.setText(
@@ -410,10 +410,10 @@ class Heat_Exchanger_Diagram(QWidget):
         
         # set positions of inlets and outlet boxes
         box_x_offset = -20
-        self.cold_inlet_box.setGeometry(int((x_cold_in + box_x_offset) * scale_x), int(25 * scale_y), 35, 25)
-        self.hot_inlet_box.setGeometry(int((x_hot_in + box_x_offset) * scale_x), int(25 * scale_y), 35, 25)
-        self.cold_outlet_box.setGeometry(int((x_cold_out + box_x_offset) * scale_x), int(350 * scale_y), 35, 25)
-        self.hot_outlet_box.setGeometry(int((x_hot_out + box_x_offset) * scale_x), int(350 * scale_y), 35, 25)
+        self.cold_inlet_box.setGeometry(int((x_cold_in + box_x_offset) * scale_x), int(25 * scale_y), 40, 25)
+        self.hot_inlet_box.setGeometry(int((x_hot_in + box_x_offset) * scale_x), int(25 * scale_y), 40, 25)
+        self.cold_outlet_box.setGeometry(int((x_cold_out + box_x_offset) * scale_x), int(350 * scale_y), 40, 25)
+        self.hot_outlet_box.setGeometry(int((x_hot_out + box_x_offset) * scale_x), int(350 * scale_y), 40, 25)
 
         # set position of output boxes
         label_width = 120
