@@ -36,7 +36,7 @@ class MainWindow(QMainWindow):
         self.optimise_widget = Optimise_Widget()
 
         self.HE_definition = Heat_Exchanger_Definition()        
-        layout.addWidget(self.HE_definition, 0, 0, 1, 2)
+        layout.addWidget(self.HE_definition, 0, 0, 3, 2)
 
         
         self.HE_diagram = Heat_Exchanger_Diagram(600, 400)
@@ -48,12 +48,12 @@ class MainWindow(QMainWindow):
         self.results_widget = Results_Widget()
 
     
-        layout.addWidget(diagram_label, 0, 2, 1, 1)
-        layout.addWidget(self.HE_diagram, 1, 2, 4, 1)
+        layout.addWidget(diagram_label, 0, 2, 1, 2)
+        layout.addWidget(self.HE_diagram, 2, 2, 6, 2)
 
-        layout.addWidget(self.optimise_widget, 1, 0, 1, 2)
+        layout.addWidget(self.optimise_widget, 3, 0, 3, 2)
 
-        layout.addWidget(self.results_widget, 0, 3, 4, 2)
+        layout.addWidget(self.results_widget, 0, 4, 6, 4)
 
 
         # set the central widget of the Window
