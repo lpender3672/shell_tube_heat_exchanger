@@ -52,7 +52,9 @@ class MainWindow(QMainWindow):
         self.optimise_widget.iteration_update.connect(
             self.results_widget.convergence_graph.new_data
             )
-
+        self.optimise_widget.iteration_update.connect(
+            self.results_widget.state_space_graph.new_data
+            )
     
         layout.addWidget(diagram_label, 0, 2, 1, 1)
         layout.addWidget(self.HE_diagram, 1, 2, 4, 1)

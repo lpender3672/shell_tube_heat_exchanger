@@ -21,7 +21,7 @@ class Optimise_Result():
 
 
 class Optimise_Widget(QWidget):
-    iteration_update = pyqtSignal(float)
+    iteration_update = pyqtSignal(list)
 
     def __init__(self):
         super().__init__()
@@ -106,8 +106,8 @@ class Optimise_Widget(QWidget):
         print("Optimisation started")
         
 
-    def on_iteration_update(self, qdot):
-        self.iteration_update.emit(qdot)
+    def on_iteration_update(self, data):
+        self.iteration_update.emit(data)
 
 
     def on_optimisation_finished(self, result):
@@ -136,7 +136,7 @@ class Optimise_Widget(QWidget):
 
 
 class Worker_Signals(QObject):
-    iteration_update = pyqtSignal(float)
+    iteration_update = pyqtSignal(list)
     finished = pyqtSignal(Optimise_Result)
 
 class Scipy_Optimise_Worker(QRunnable):
@@ -201,7 +201,9 @@ class Scipy_Optimise_Worker(QRunnable):
 
         #if not result:  return np.inf
         if self.iteration_count % self.emit_interval == 0:
-            self.signal.iteration_update.emit(self.heat_exchanger.Qdot)
+            output = [self.heat_exchanger.Qdot, self.heat_exchanger.effectiveness]
+            self.signal.iteration_update.emit([x, output])
+
         self.iteration_count += 1
 
         return 1e4 / self.heat_exchanger.Qdot
@@ -249,7 +251,8 @@ class Scipy_Global_Optimise_Worker(QRunnable):
         result = self.heat_exchanger.compute_effectiveness(method = 'LMTD')
 
         if self.iteration_count % self.emit_interval == 0:
-            self.signal.iteration_update.emit(self.heat_exchanger.Qdot)
+            output = [self.heat_exchanger.Qdot, self.heat_exchanger.effectiveness]
+            self.signal.iteration_update.emit([x, output])
 
         self.iteration_count += 1
         return 1e4 / self.heat_exchanger.Qdot
@@ -342,7 +345,10 @@ class Brute_Force_Worker(QRunnable):
                     continue
 
                 result = self.heat_exchanger.compute_effectiveness(method = 'LMTD')
-                self.signal.iteration_update.emit(self.heat_exchanger.Qdot)
+                
+                output = [self.heat_exchanger.Qdot, self.heat_exchanger.effectiveness]
+                x = [tubes, baffles]
+                self.signal.iteration_update.emit([x, output])
 
                 if not result:
                     continue
