@@ -90,15 +90,15 @@ class Optimise_Widget(QWidget):
             heat_exchanger.id = i
 
             # scipy optimse worker
-            # worker = Scipy_Optimise_Worker(heat_exchanger)
-            # worker.build_constraints()
+            worker = Scipy_Optimise_Worker(heat_exchanger)
+            worker.build_constraints()
 
             # scipy global optimise worker
             # worker = Scipy_Global_Optimise_Worker(heat_exchanger)
             # worker.build_constraints()
 
             # brute force worker
-            worker = Brute_Force_Worker(heat_exchanger)
+            # worker = Brute_Force_Worker(heat_exchanger)
 
             if self.iteration_callback:
                 worker.signal.iteration_update.connect(self.iteration_callback)
@@ -213,13 +213,15 @@ class Scipy_Optimise_Worker(QRunnable):
 
         # https://docs.scipy.org/doc/scipy/tutorial/optimize.html
         # 
-
-        tubes = self.heat_exchanger.total_tubes
-        baffles = self.heat_exchanger.total_baffles
+        max_tubes = 24
+        max_baffles_per_section = 30
+        max_tubes_per_section = max_tubes // self.heat_exchanger.hot_flow_sections
+        rand_tubes = np.random.randint(1, max_baffles_per_section)
+        rand_baffles = np.random.randint(1, max_tubes_per_section)
 
         res = scipy_minimize(
                         self.objective_function, 
-                        [tubes, baffles], 
+                        [rand_tubes, rand_baffles], 
                         method='trust-constr',
                         jac="2-point",
                         hess=BFGS(),

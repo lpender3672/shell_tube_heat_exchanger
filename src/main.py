@@ -41,20 +41,12 @@ class MainWindow(QMainWindow):
         
         self.HE_diagram = Heat_Exchanger_Diagram(600, 400)
 
-        self.HE_definition.HE_update_signal.connect(self.HE_diagram.set_heat_exchanger)
-
         diagram_label = QLabel("Heat Exchanger Diagram")
 
         self.HE_diagram.setFixedWidth(600)
         
         self.results_widget = Results_Widget()
 
-        self.optimise_widget.set_iteration_callback(
-            self.results_widget.convergence_graph.new_data
-            )
-        self.optimise_widget.set_iteration_callback(
-            self.results_widget.state_space_graph.new_data
-            )
     
         layout.addWidget(diagram_label, 0, 2, 1, 1)
         layout.addWidget(self.HE_diagram, 1, 2, 4, 1)
@@ -94,9 +86,24 @@ class MainWindow(QMainWindow):
             print(HXchanger.NTU)
         """
 
-
+        self.attach_signals()
         self.HE_definition.load_heat_exchanger(HXchanger)
+
         
+    def attach_signals(self):
+        # This attaches the heat exchanger update signal to the diagram update function
+        self.HE_definition.HE_update_signal.connect(self.HE_diagram.set_heat_exchanger)
+
+        # This sets the design template for the optimiser to the manually set heat exchanger
+        self.HE_definition.HE_update_signal.connect(self.optimise_widget.set_design_template)
+
+        # This attaches the graph update functions called each iteration
+        self.optimise_widget.set_iteration_callback(
+            self.results_widget.convergence_graph.new_data
+            )
+        self.optimise_widget.set_iteration_callback(
+            self.results_widget.state_space_graph.new_data
+            )
 
     def line_update(self, i):
         self.list_widget.setCurrentRow(i)
