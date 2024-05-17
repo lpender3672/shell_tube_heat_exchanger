@@ -7,6 +7,8 @@ import matplotlib
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
+matplotlib.use('QtAgg')
+
 import numpy as np
 
 from constants import *
@@ -23,6 +25,7 @@ class Convergence_Graph(QWidget):
         self.ax.set_ylabel("Qdot (W)")
         self.ax.set_ylim(2000, 20000)
         self.ax.set_xlim(0, 200)
+        self.ax.grid()
         
         self.index = 0
         
@@ -38,7 +41,9 @@ class Convergence_Graph(QWidget):
         # add new data to graph without clearing
         self.ax.plot(self.index, Qdot, 'ro')
         self.ax.grid()
-        self.canvas.draw()
+        self.canvas.draw_idle()
+
+        self.update()
 
         self.index += 1
 
@@ -53,8 +58,9 @@ class State_Space_Graph(QWidget):
         self.ax = self.figure.add_subplot(111)
         self.ax.set_xlabel("Tubes per stage")
         self.ax.set_ylabel("Baffles per stage")
-        self.ax.set_ylim(0, 21)
+        self.ax.set_ylim(0, 31)
         self.ax.set_xlim(0, 10)
+        self.ax.grid()
 
         # display a colour map legend
         
@@ -68,6 +74,8 @@ class State_Space_Graph(QWidget):
     
     def new_data(self, data):
 
+        print(data)
+
         Qdot = data[1][0]
         tubes, baffles = data[0]
         
@@ -76,9 +84,8 @@ class State_Space_Graph(QWidget):
         c = plt.cm.jet((Qdot - 2000) / 18000)
         self.ax.plot(tubes, baffles, 'o', color = c)
         self.ax.grid()
-        self.canvas.draw()
+        self.canvas.draw_idle()
 
-    
 
 class Results_Widget(QWidget):
     def __init__(self):

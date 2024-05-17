@@ -225,13 +225,13 @@ class Heat_Exchanger_Diagram(QWidget):
         self.mdot_cold_box.setPlaceholderText("mdot_cold")
         self.Qdot_box.setPlaceholderText("Qdot")
         self.effectiveness_box.setPlaceholderText("Effectiveness")
-        self.mass_box.setPlaceholderText("Mass (kg)")
+        self.mass_box.setPlaceholderText("mass")
 
         self.mdot_hot_label = QLabel("Hot mass flow rate:")
         self.mdot_cold_label = QLabel("Cold mass flow rate:")
         self.Qdot_label = QLabel("Heat transfer rate:")
         self.effectiveness_label = QLabel("Effectiveness:")
-        self.mass_label = QLabel("Mass flow rates (kg/s)")
+        self.mass_label = QLabel("HE Mass (kg)")
 
 
         # Set up the layout
@@ -269,6 +269,9 @@ class Heat_Exchanger_Diagram(QWidget):
     
     def recompute(self):
 
+
+        print("recomputing effectiveness")
+
         try:
             T1in = float(self.cold_inlet_box.text())
             T2in = float(self.hot_inlet_box.text())
@@ -297,6 +300,8 @@ class Heat_Exchanger_Diagram(QWidget):
 
         mass = self.heat_exchanger.calc_mass()
 
+        dpoints = 4
+
         self.cold_outlet_box.setText(
             str(np.round(T1out,2))
             )
@@ -305,20 +310,20 @@ class Heat_Exchanger_Diagram(QWidget):
             )
         
         self.mdot_cold_box.setText(
-            str(np.round(mdot_cold,2))
+            str(np.round(mdot_cold,dpoints))
             )
         self.mdot_hot_box.setText(
-            str(np.round(mdot_hot,2))
+            str(np.round(mdot_hot,dpoints))
             )
         self.Qdot_box.setText(
-            str(np.round(Qdot,2))
+            str(np.round(Qdot,dpoints))
             )
         self.effectiveness_box.setText(
-            str(np.round(effectiveness,2))
+            str(np.round(effectiveness,dpoints))
             )
         
         self.mass_box.setText(
-            str(np.round(mass,2))
+            str(np.round(mass,dpoints))
             )
         
     def paintEvent(self, event):

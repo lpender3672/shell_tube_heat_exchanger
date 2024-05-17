@@ -49,10 +49,10 @@ class MainWindow(QMainWindow):
         
         self.results_widget = Results_Widget()
 
-        self.optimise_widget.iteration_update.connect(
+        self.optimise_widget.set_iteration_callback(
             self.results_widget.convergence_graph.new_data
             )
-        self.optimise_widget.iteration_update.connect(
+        self.optimise_widget.set_iteration_callback(
             self.results_widget.state_space_graph.new_data
             )
     

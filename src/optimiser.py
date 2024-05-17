@@ -21,7 +21,6 @@ class Optimise_Result():
 
 
 class Optimise_Widget(QWidget):
-    iteration_update = pyqtSignal(list)
 
     def __init__(self):
         super().__init__()
@@ -29,6 +28,8 @@ class Optimise_Widget(QWidget):
         self.num_threads = num_threads
         self.template = None
         self.conditions = None
+
+        self.iteration_callback = None
 
         layout = QGridLayout()
 
@@ -64,6 +65,8 @@ class Optimise_Widget(QWidget):
     def set_conditions(self, conditions):
         self.conditions = conditions
 
+    def set_iteration_callback(self, callback):
+        self.iteration_callback = callback
 
     def start_optimiser(self):
 
@@ -78,6 +81,7 @@ class Optimise_Widget(QWidget):
 
         # use the thread pool to run the optimiser
         self.thread_pool = QThreadPool.globalInstance()
+        self.thread_pool.setMaxThreadCount(self.num_threads)
 
         self.workers = []
         for i in range(self.num_threads):
@@ -95,8 +99,9 @@ class Optimise_Widget(QWidget):
 
             # brute force worker
             worker = Brute_Force_Worker(heat_exchanger)
-            
-            worker.signal.iteration_update.connect(self.on_iteration_update)
+
+            if self.iteration_callback:
+                worker.signal.iteration_update.connect(self.iteration_callback)
             worker.signal.finished.connect(self.on_optimisation_finished)
             
             self.workers.append(worker)
@@ -104,11 +109,6 @@ class Optimise_Widget(QWidget):
 
         
         print("Optimisation started")
-        
-
-    def on_iteration_update(self, data):
-        self.iteration_update.emit(data)
-
 
     def on_optimisation_finished(self, result):
         self.cancel_optimise()
@@ -123,7 +123,7 @@ class Optimise_Widget(QWidget):
 
             mass = result.heat_exchanger.calc_mass()
 
-            print(f"L = {L}, tubes = {tubes}, baffles = {baffles}, mass = {mass}")
+            print(f"L = {L}, tubes per stage = {tubes}, baffles per stage = {baffles}, mass = {mass}")
             print(f"mdot_cold = {result.heat_exchanger.mdot[0]}, mdot_hot = {result.heat_exchanger.mdot[1]}")
             print(f"Qdot = {result.heat_exchanger.Qdot}, effectiveness = {result.heat_exchanger.effectiveness}")
         
