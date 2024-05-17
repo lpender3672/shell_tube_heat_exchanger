@@ -21,6 +21,7 @@ class Optimise_Result():
 
 
 class Optimise_Widget(QWidget):
+    optimal_found = pyqtSignal(Heat_Exchanger)
 
     def __init__(self):
         super().__init__()
@@ -126,6 +127,8 @@ class Optimise_Widget(QWidget):
             print(f"L_tube = {L}, tubes per stage = {tubes}, baffles per stage = {baffles}, mass = {mass}")
             print(f"mdot_cold = {result.heat_exchanger.mdot[0]}, mdot_hot = {result.heat_exchanger.mdot[1]}")
             print(f"Qdot = {result.heat_exchanger.Qdot}, effectiveness = {result.heat_exchanger.effectiveness}")
+
+            self.optimal_found.emit(result.heat_exchanger)
         
         else:
             print("Optimisation Failed")

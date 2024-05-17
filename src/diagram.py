@@ -96,16 +96,13 @@ class Heat_Exchanger_Definition(QWidget):
 
         layout.addWidget(self.label, 0, 0, 1, 2)
         layout.addWidget(self.stage_table, 1, 0, 5, 2)
-        self.stage_table.setMinimumWidth(350)
-        self.stage_table.setMinimumHeight(200)
+        self.stage_table.setMinimumWidth(400)
+        self.stage_table.setMinimumHeight(300)
 
 
         layout.addWidget(self.input_side, 6, 0, 1, 2)
         layout.addWidget(self.length_label, 7, 0)
         layout.addWidget(self.length_input, 7, 1)
-
-        self.hot_passes = 1
-        self.cold_passes = 1
 
         self.setLayout(layout)
 
@@ -221,6 +218,9 @@ class Heat_Exchanger_Definition(QWidget):
         self.stage_table.cellWidget(0, 1).enum_update_signal.connect(self.update_heat_exchanger)
         self.stage_table.cellWidget(0, 2).valueChanged.connect(self.update_heat_exchanger)
         self.stage_table.cellWidget(0, 3).enum_update_signal.connect(self.update_heat_exchanger)
+
+        self.hot_passes = 1
+        self.cold_passes = 1
 
     def load_heat_exchanger(self, heat_exchanger):
 

@@ -105,6 +105,9 @@ class MainWindow(QMainWindow):
         self.optimise_widget.set_iteration_callback(
             self.results_widget.state_space_graph.new_data
             )
+        
+        # When the optimal heat exchanger is found, load it into the definition widget
+        self.optimise_widget.optimal_found.connect(self.HE_definition.load_heat_exchanger)
 
     def line_update(self, i):
         self.list_widget.setCurrentRow(i)
