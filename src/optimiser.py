@@ -11,7 +11,7 @@ from scipy.optimize import minimize as scipy_minimize
 from scipy.optimize import shgo as scipy_shgo
 
 from constants import *
-from heat_exchanger import Heat_Exchanger
+from heat_exchanger import Heat_Exchanger, pitch_from_tubes
 
 
 class Optimise_Result():
@@ -117,10 +117,9 @@ class Optimise_Widget(QWidget):
             print("Optimisation Successful")
 
             L = result.heat_exchanger.L_hot_tube
-            pitch = result.heat_exchanger.pitch
 
-            tubes = result.heat_exchanger.total_tubes
-            baffles = result.heat_exchanger.total_baffles
+            tubes = result.heat_exchanger.hot_path.elements[1].tubes
+            baffles = result.heat_exchanger.cold_path.elements[0].baffles
 
             mass = result.heat_exchanger.calc_mass()
 
@@ -236,7 +235,6 @@ class Scipy_Optimise_Worker(QRunnable):
 class Scipy_Global_Optimise_Worker(QRunnable):
     def __init__(self, heat_exchanger):
         super().__init__()
-        QObject.__init__(self)
 
         self.heat_exchanger = heat_exchanger
         self.cancelled = False
@@ -251,7 +249,7 @@ class Scipy_Global_Optimise_Worker(QRunnable):
         result = self.heat_exchanger.compute_effectiveness(method = 'LMTD')
 
         if self.iteration_count % self.emit_interval == 0:
-            self.signal.iteration_update.emit(self.heat_exchanger)
+            self.signal.iteration_update.emit(self.heat_exchanger.Qdot)
 
         self.iteration_count += 1
         return 1e4 / self.heat_exchanger.Qdot
@@ -268,6 +266,14 @@ class Scipy_Global_Optimise_Worker(QRunnable):
         mass_constraint = NonlinearConstraint(calc_mass, 0.5, 1.20, jac='2-point')
         constraints.append(mass_constraint)
 
+        # require pitch to be greater than D_outer_tube
+        def calc_pitch(x):
+            return pitch_from_tubes(x[0], Pattern.SQUARE)
+        
+        pitch_constraint = NonlinearConstraint(calc_pitch, D_outer_tube, D_shell, jac='2-point')
+        constraints.append(pitch_constraint)
+
+        # force number of tubes and baffles to take integer values
         def integer_constraints(x):
             x[0] = x[0] % 1
             x[1] = x[1] % 1

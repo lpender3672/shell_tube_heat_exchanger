@@ -536,8 +536,6 @@ class Heat_Exchanger():
                 element.baffles = baffles
 
                 self.total_tubes += element.tubes
-                
-
                 pattern = element.pattern
 
         for element in self.cold_path.elements:
@@ -546,12 +544,10 @@ class Heat_Exchanger():
                 element.baffles = baffles
                 self.total_baffles += element.baffles
 
-
-        self.pitch = pitch_from_tubes(tubes, pattern)
-
+        self.pitch = pitch_from_tubes(self.total_tubes, pattern)
         if self.pitch < D_outer_tube:
             print("Warning: Pitch is less than the tube diameter")
-
+    
     
     def get_random_geometry_copy(self, constraints = None):
 

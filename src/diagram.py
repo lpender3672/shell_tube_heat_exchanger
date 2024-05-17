@@ -67,12 +67,13 @@ class Heat_Exchanger_Definition(QWidget):
         self.cold_stages_input.setMinimum(1)
 
         self.input_side = Cycle_Button("Input Side", Side)
+        self.tube_pattern = Cycle_Button("Tube Pattern", Pattern)
 
-        self.baffles_label = QLabel("Baffles per stage:")
+        self.baffles_label = QLabel("Baffles per cold pass:")
         self.baffles_input = QSpinBox()
         self.baffles_input.setMinimum(0)
 
-        self.tubes_label = QLabel("Tubes per stage:")
+        self.tubes_label = QLabel("Tubes per hot pass:")
         self.tubes_input = QSpinBox()
         self.tubes_input.setMinimum(1)
 
@@ -83,6 +84,7 @@ class Heat_Exchanger_Definition(QWidget):
         layout.addWidget(self.cold_stages_input, 2, 1)
 
         layout.addWidget(self.input_side, 3, 0)
+        layout.addWidget(self.tube_pattern, 3, 1)
 
         layout.addWidget(self.baffles_label, 4, 0)
         layout.addWidget(self.baffles_input, 4, 1)
@@ -95,6 +97,7 @@ class Heat_Exchanger_Definition(QWidget):
         self.hot_stages_input.valueChanged.connect(self.update_heat_exchanger)
         self.cold_stages_input.valueChanged.connect(self.update_heat_exchanger)
         self.input_side.enum_update_signal.connect(self.update_heat_exchanger)
+        self.tube_pattern.enum_update_signal.connect(self.update_heat_exchanger)
         self.baffles_input.valueChanged.connect(self.update_heat_exchanger)
         self.tubes_input.valueChanged.connect(self.update_heat_exchanger)
 
@@ -103,18 +106,20 @@ class Heat_Exchanger_Definition(QWidget):
         self.cold_stages_input.setValue(heat_exchanger.cold_flow_sections)
 
         self.input_side.setCurrentValue(heat_exchanger.flow_path_entries_side)
+        self.tube_pattern.setCurrentValue(heat_exchanger.hot_path.elements[1].pattern)
 
         self.baffles_input.setValue(heat_exchanger.hot_path.elements[1].baffles)
         self.tubes_input.setValue(heat_exchanger.hot_path.elements[1].tubes)
 
         self.HE_update_signal.emit(heat_exchanger)
     
-    def set_heat_exchanger(self, cold_stages, hot_stages, tubes, baffles, flow_path_entries_side):
+    def set_heat_exchanger(self, cold_stages, hot_stages, tubes, baffles, flow_path_entries_side, pattern):
         self.hot_stages_input.setValue(hot_stages)
         self.cold_stages_input.setValue(cold_stages)
         self.tubes_input.setValue(tubes)
         self.baffles_input.setValue(baffles)
         self.input_side.setCurrentValue(flow_path_entries_side)
+        self.tube_pattern.setCurrentValue(pattern)
 
         return self.update_heat_exchanger()
 
@@ -124,6 +129,8 @@ class Heat_Exchanger_Definition(QWidget):
         cold_stages = self.cold_stages_input.value()
 
         flow_path_entries_side = self.input_side.current_value
+        tube_pattern = self.tube_pattern.current_value
+
         tubes_per_stage = self.tubes_input.value()
         baffles_per_stage = self.baffles_input.value()
             
@@ -132,7 +139,7 @@ class Heat_Exchanger_Definition(QWidget):
         Hot_path.add_element(
             Heat_Transfer_Element(tubes_per_stage, baffles_per_stage, 
                                 Direction.COUNTERFLOW,
-                                Pattern.SQUARE)
+                                tube_pattern)
         )
         Hot_path.add_element(Exit_Expansion())
         for i in range(hot_stages - 1):
@@ -141,23 +148,27 @@ class Heat_Exchanger_Definition(QWidget):
             Hot_path.add_element(
                 Heat_Transfer_Element(tubes_per_stage, baffles_per_stage, 
                                     Direction.COUNTERFLOW,
-                                    Pattern.SQUARE)
+                                    tube_pattern)
             )
             Hot_path.add_element(Exit_Expansion())
 
         Cold_path = Fluid_Path(rho_w, mu, cp, k_w)
 
         Cold_path.add_element(
-            Heat_Transfer_Element(tubes_per_stage * hot_stages / cold_stages , baffles_per_stage, 
+            Heat_Transfer_Element(
+                                int(tubes_per_stage * hot_stages / cold_stages), 
+                                baffles_per_stage, 
                                 flow_direction=Direction.COUNTERFLOW,
-                                tube_pattern = Pattern.SQUARE)
+                                tube_pattern = tube_pattern)
         )
         for i in range(cold_stages - 1):
             Cold_path.add_element(U_Bend())
             Cold_path.add_element(
-                Heat_Transfer_Element(tubes_per_stage * hot_stages / cold_stages, baffles_per_stage, 
+                Heat_Transfer_Element(
+                                    int(tubes_per_stage * hot_stages / cold_stages), 
+                                    baffles_per_stage, 
                                     flow_direction=Direction.COFLOW,
-                                    tube_pattern = Pattern.SQUARE)
+                                    tube_pattern = tube_pattern)
             )
 
         HEchanger = Heat_Exchanger(Cold_path, Hot_path, 
@@ -165,7 +176,7 @@ class Heat_Exchanger_Definition(QWidget):
 
         self.HE_update_signal.emit(HEchanger)
 
-        return HEchanger        
+        return HEchanger
 
 class Heat_Exchanger_Diagram(QWidget):
     def __init__(self, width, height):
@@ -202,21 +213,25 @@ class Heat_Exchanger_Diagram(QWidget):
         self.mdot_cold_box = QLineEdit()
         self.Qdot_box = QLineEdit()
         self.effectiveness_box = QLineEdit()
+        self.mass_box = QLineEdit()
 
         self.mdot_hot_box.setReadOnly(True)
         self.mdot_cold_box.setReadOnly(True)
         self.Qdot_box.setReadOnly(True)
         self.effectiveness_box.setReadOnly(True)
+        self.mass_box.setReadOnly(True)
 
         self.mdot_hot_box.setPlaceholderText("mdot_hot")
         self.mdot_cold_box.setPlaceholderText("mdot_cold")
         self.Qdot_box.setPlaceholderText("Qdot")
         self.effectiveness_box.setPlaceholderText("Effectiveness")
+        self.mass_box.setPlaceholderText("Mass (kg)")
 
         self.mdot_hot_label = QLabel("Hot mass flow rate:")
         self.mdot_cold_label = QLabel("Cold mass flow rate:")
         self.Qdot_label = QLabel("Heat transfer rate:")
         self.effectiveness_label = QLabel("Effectiveness:")
+        self.mass_label = QLabel("Mass flow rates (kg/s)")
 
 
         # Set up the layout
@@ -242,7 +257,9 @@ class Heat_Exchanger_Diagram(QWidget):
             self.Qdot_label,
             self.Qdot_box,
             self.effectiveness_label,
-            self.effectiveness_box
+            self.effectiveness_box,
+            self.mass_label,
+            self.mass_box
         ]
         
     def set_heat_exchanger(self, heat_exchanger):
@@ -278,6 +295,8 @@ class Heat_Exchanger_Diagram(QWidget):
         Qdot = self.heat_exchanger.Qdot
         effectiveness = self.heat_exchanger.effectiveness
 
+        mass = self.heat_exchanger.calc_mass()
+
         self.cold_outlet_box.setText(
             str(np.round(T1out,2))
             )
@@ -298,11 +317,18 @@ class Heat_Exchanger_Diagram(QWidget):
             str(np.round(effectiveness,2))
             )
         
+        self.mass_box.setText(
+            str(np.round(mass,2))
+            )
+        
     def paintEvent(self, event):
         super().paintEvent(event)
         painter = QPainter(self)
 
         #painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        if not hasattr(self, 'heat_exchanger'):
+            return
 
         # Calculate scaling factors based on width and height
         scale_x = self.width / 800
