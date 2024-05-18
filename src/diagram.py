@@ -5,6 +5,7 @@ from PyQt6.QtCore import Qt, QPoint, pyqtSignal
 from PyQt6.QtWidgets import QLineEdit, QGridLayout, QVBoxLayout, QLabel, QPushButton, QSpinBox, QTableWidget, QTableWidgetItem
 
 import numpy as np
+import logging
 
 from constants import *
 from utils import draw_zigzag_line, draw_arrow
@@ -273,9 +274,13 @@ class Heat_Exchanger_Definition(QWidget):
         length = self.length_input.text()
         
         try:
+            assert length != ""
             length = float(length)
+        except AssertionError:
+            return 
         except ValueError:
-            print("Enter a number you fool")
+            logging.warning(f"Unable to convert {length} to a float")
+            return
         
         heat_exchanger = build_heat_exchanger(
             tubes_per_stage, baffles_per_stage, length, flow_path_entries_side, hot_tube_pattern, cold_tube_pattern
@@ -375,13 +380,25 @@ class Heat_Exchanger_Diagram(QWidget):
         self.recompute()
         self.update()
     
+    def set_conditions(self, conditions):
+        self.cold_inlet_box.setText(str(conditions[0]))
+        self.hot_inlet_box.setText(str(conditions[1]))
+        self.recompute()
+        self.update()
+    
     def recompute(self):
 
 
         try:
-            T1in = float(self.cold_inlet_box.text())
-            T2in = float(self.hot_inlet_box.text())
+            T1_text = self.cold_inlet_box.text()
+            T2_text = self.hot_inlet_box.text()
+            assert T1_text != "" and T2_text != ""
+            T1in = float(T1_text)
+            T2in = float(T2_text)
+        except AssertionError:
+            return # as nothing has been entered
         except ValueError:
+            logging.warning(f"Failed to convert {T1_text} or {T2_text} to a float")
             return
 
         self.heat_exchanger.set_conditions([T1in, T2in])
@@ -390,7 +407,8 @@ class Heat_Exchanger_Diagram(QWidget):
         )
 
         if not res:
-            print("failed to compute effectiveness")
+            #logging.warning("Failed to compute effectiveness")
+
             self.cold_outlet_box.setText("N/A")
             self.hot_outlet_box.setText("N/A")
             self.mdot_cold_box.setText("N/A")

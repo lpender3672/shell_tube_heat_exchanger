@@ -89,6 +89,7 @@ class MainWindow(QMainWindow):
 
         self.attach_signals()
         self.HE_definition.load_heat_exchanger(HXchanger)
+        self.HE_diagram.set_conditions([20,60])
 
         
     def attach_signals(self):
@@ -99,14 +100,16 @@ class MainWindow(QMainWindow):
         self.HE_definition.HE_update_signal.connect(self.optimise_widget.set_design_template)
 
         # This attaches the graph update functions called each iteration
-        self.optimise_widget.set_iteration_callback(
+        self.optimise_widget.add_iteration_callback(
             self.results_widget.convergence_graph.new_data
             )
-        self.optimise_widget.set_iteration_callback(
+        self.optimise_widget.add_iteration_callback(
             self.results_widget.state_space_graph.new_data
             )
         
         # When the optimal heat exchanger is found, load it into the definition widget
+        self.optimise_widget.start_optimise_button.clicked.connect(self.results_widget.convergence_graph.clear)
+        self.optimise_widget.start_optimise_button.clicked.connect(self.results_widget.state_space_graph.clear)
         self.optimise_widget.optimal_found.connect(self.HE_definition.load_heat_exchanger)
 
     def line_update(self, i):

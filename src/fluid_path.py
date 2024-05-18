@@ -1,5 +1,6 @@
 from constants import *
 
+import logging
 
 class Entry_Constriction():
     def __init__(self):
@@ -8,6 +9,7 @@ class Entry_Constriction():
     def loss_coefficient(self, Re, sigma):
         # valid linear range that was estimated from figure 8
         if sigma > 0.35:
+            logging.warning("Warning: sigma > 0.35 which invalidates simple relation determined from figure 8")
             print("Warning: sigma > 0.35 which invalidates simple relation determined from figure 8")
             sigma = 0.35
 
@@ -22,6 +24,7 @@ class Exit_Expansion():
     def loss_coefficient(self, Re, sigma):
         # valid linear range that was estimated from figure 8
         if sigma > 0.35:
+            logging.warning("Warning: sigma > 0.35 which invalidates simple relation determined from figure 8")
             print("Warning: sigma > 0.35 which invalidates simple relation determined from figure 8")
             sigma = 0.35
 
@@ -50,6 +53,23 @@ class Heat_Transfer_Element():
         return (1.82 * np.log10(Re) - 1.64)**-2
 
         # THIS COULD ALSO POSSIBLY SOLVE THE ColeBrook-White equation for potentially better results.
+
+    
+    def calculate_pitch(self, cold_flow_sections):
+        # calculates pitch for the section of the cold flow which packs the tubes in the most efficient way
+        # if cold flow sections is 1 then this is for a circle
+        # if cold flow sections is 2 then this is for a semi-circle
+        # cold flow sections is 3 then this is not supported
+        # if cold flow sections is 4 then this is for a quarter circle
+
+        # This also depends on the tube pattern, triangular and square
+
+        if cold_flow_sections == 3:
+            logging.error("Pitch calculation 3 cold flow sections is not supported")
+            print("Pitch calculation 3 cold flow sections is not supported")
+            return None
+        
+        # TODO: implement this today
 
 
 class Fluid_Path():

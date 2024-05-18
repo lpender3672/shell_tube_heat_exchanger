@@ -8,6 +8,8 @@ from scipy.optimize import fsolve
 import scipy
 import scipy.optimize
 
+import logging
+
 from constants import *
 
 from fluid_path import Fluid_Path, Entry_Constriction, Exit_Expansion, U_Bend, Heat_Transfer_Element
@@ -85,6 +87,7 @@ def GET_F(T1in, T2in, T1out, T2out, N, flow_path_entries_side):
         if flow_path_entries_side == Side.OPPOSITE:
             F = 1
         else:
+            logging.critical("Error: F undefined for this configuration")
             raise NotImplementedError("F for coflow not implemented yet")
             # page 1286 of Holman, J. P. “Heat Transfer”. 8th Edition, McGraw Hill.
             # doesnt converge
@@ -94,9 +97,10 @@ def GET_F(T1in, T2in, T1out, T2out, N, flow_path_entries_side):
                 F = 2 * p / ((p - 1) * np.log(1 - 2*p))
             else:
                 F = (r + 1) * np.log((1 - r * p) / (1 - p)) / ((r - 1) * np.log(1 - p * (1 + r)))
-            print(F)
+
     else:
-        print("Error: F undefined for this configuration")
+        logging.critical("Error: F undefined for this configuration")
+        raise NotImplementedError("F for this configuration not implemented yet")
         F = None
 
     return F
@@ -108,13 +112,14 @@ def pitch_from_tubes(tubes, pattern):
     elif pattern == Pattern.TRIANGLE:
         k = 1 / np.sqrt(3)
     else:
-        print("Error: Unknown pattern")
+        logging.error("Unknown pattern")
 
     pitch = k * D_shell / np.sqrt(tubes)
 
     if pitch < D_outer_tube:
-        print("Warning: Pitch is less than the tube diameter")
-        pitch = D_outer_tube
+        logging.error("Pitch is less than the tube diameter")
+    elif pitch < D_outer_tube + pitch_offset:
+        logging.warning("Tubes are closer than minimum set distance")
 
     return pitch
 
@@ -159,13 +164,6 @@ class Heat_Exchanger():
         self.mdot = [0.3, 0.25]
 
         self.L_hot_tube = 0.35 - 2 * end_cap_width
-
-        # old method
-        
-        #self.pitch = pitch_from_tubes(self.total_tubes, pattern)
-        #if self.pitch < D_outer_tube:
-        #    print("Warning: Pitch is less than the tube diameter")
-        #self.pitch = 0.014
 
         self.hydraulic_iteration_count = 0
 
@@ -275,7 +273,7 @@ class Heat_Exchanger():
                 elif element.pattern == Pattern.TRIANGLE:
                     effective_d_shell = 1.10/D_outer_tube * (pitch**2 - 0.917 * D_outer_tube**2) * self.cold_flow_sections**(-1/2)
                 else:
-                    print("Error: Unknown pattern")
+                    logging.error("Error: Unknown pattern")
 
                 B_spacing = self.L_hot_tube / (element.baffles + 1)
                 A_shell_effective = (pitch - D_outer_tube) * \
@@ -362,7 +360,7 @@ class Heat_Exchanger():
             elif element.pattern == Pattern.TRIANGLE:
                 effective_d_shell = 1.10/D_outer_tube * (pitch**2 - 0.917 * D_outer_tube**2) * self.cold_flow_sections**(-1/2)
             else:
-                print("Error: Unknown pattern")
+                logging.error("Error: Unknown pattern")
 
             B_spacing = self.L_hot_tube / (element.baffles + 1)
             A_shell_effective = (pitch - D_outer_tube) * \
@@ -414,16 +412,20 @@ class Heat_Exchanger():
     def calc_mdot(self, x = None):
 
         try:
-            mdot = fsolve(self.hydraulic_iteration, 
-                                     self.mdot
+            mdot, _, res, *_ = fsolve(self.hydraulic_iteration, 
+                                     self.mdot,
+                                     xtol = hydraulic_error_tolerance,
+                                     maxfev = max_hydraulic_iterations,
+                                     full_output = True
                                      )
-            
-            assert np.isfinite(self.mdot).all()
-        except Exception as e:
-            print("Failed to solve hydraulic analsis")
-            print(e)
+            assert res == 1
+        except AssertionError:
+            logging.error("Hydraulic analysis failed to converge")
             return None
-
+        except Exception as e:
+            logging.critical(f"Hydraulic analysis failed: {e}")
+            return None
+        
         return mdot
 
     def compute_effectiveness(self, method = "LMTD", optimiser = 'brute'):
@@ -433,20 +435,28 @@ class Heat_Exchanger():
         if (optimiser =='brute'):
             try:
                 grid = (slice(np.min(cold_side_compressor_characteristic_2024[0]), np.max(cold_side_compressor_characteristic_2024[0]), 0.01), slice(np.min(hot_side_compressor_characteristic_2024[0]), np.max(hot_side_compressor_characteristic_2024[0]), 0.01))
-                self.mdot = scipy.optimize.brute(self.hydraulic_iteration_squared, ranges=grid, finish=None )
+                self.mdot = scipy.optimize.brute(
+                    self.hydraulic_iteration_squared, 
+                    ranges=grid, 
+                    finish=None)
             
                 assert np.isfinite(self.mdot).all()
             except Exception as e:
-                print("Failed to solve hydraulic analsis")
-                print(e)
+                logging.error(f"Hydraulic analysis failed to converge: {e}")
                 return False
         if (optimiser == 'fsolve'):
             try:
-                self.mdot = fsolve(self.hydraulic_iteration,self.mdot)
-                assert np.isfinite(self.mdot).all()
+                self.mdot, _, res, *_ = fsolve(self.hydraulic_iteration,
+                                   self.mdot,
+                                   xtol = hydraulic_error_tolerance,
+                                   full_output = True)
+
+                assert res == 1
+            except AssertionError:
+                logging.error("Hydraulic analysis failed to converge")
+                return False
             except Exception as e:
-                print("Failed to solve hydraulic analsis")
-                print(e)
+                logging.critical(f"Hydraulic analysis failed: {e}")
                 return False
         
         mdot_cold, mdot_hot = self.mdot
@@ -459,11 +469,17 @@ class Heat_Exchanger():
         if (method == 'LMTD'):
             
             try:
-                solution = fsolve(self.LMTD_heat_solve_iteration,
-                                  [2*T1in, 0.5*T2in])
+                solution, _, res, *_ = fsolve(self.LMTD_heat_solve_iteration,
+                                  [2*T1in, 0.5*T2in],
+                                  xtol = thermal_error_tolerance,
+                                  maxfev = max_thermal_iterations,
+                                  full_output = True)
+                assert res == 1
+            except AssertionError:
+                logging.error("LMTD analysis failed to converge")
+                return False
             except Exception as e:
-                print("Failed to solve thermal analsis")
-                print(e)
+                logging.error(f"LMTD analysis failed to converge: {e}")
                 return False
             
             T1out, T2out = solution
@@ -526,7 +542,7 @@ class Heat_Exchanger():
 
         m_seperator = (self.cold_flow_sections - 1) * (self.L_hot_tube - end_cap_width_nozzle) * (D_shell) * rho_abs
         if self.cold_flow_sections > 2:
-            print("Warning: Cold flow sections is greater than 2, this is not supported")
+            logging.error("Warning: Cold flow sections is greater than 2, this is not supported")
 
 
         return (
@@ -537,6 +553,17 @@ class Heat_Exchanger():
             m_caps + 
             m_seperator
         )
+
+    def get_pitch(self):
+        pitches = []
+
+        for element in self.hot_path.elements:
+            if isinstance(element, Heat_Transfer_Element):
+                # TODO: fix this temporary solution
+                pitch = pitch_from_tubes(element.tubes * self.hot_flow_sections, element.pattern)
+                pitches.append(pitch)
+        
+        return pitches
 
 
     def set_geometry(self, length, tubes, baffles):

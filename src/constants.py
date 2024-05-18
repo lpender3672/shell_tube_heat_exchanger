@@ -23,9 +23,10 @@ k_tube = 386 # W / mK
 Pr = 4.31
 
 Moody_Transition_RE = 10e5
-max_hydraulic_iterations = 900
-max_thermal_iterations = 900
+max_hydraulic_iterations = 100
+max_thermal_iterations = 100
 hydraulic_error_tolerance = 1e-8
+thermal_error_tolerance = 1e-8
 
 cold_side_compressor_characteristic_2023 = np.array([
     [
@@ -150,6 +151,8 @@ a_square = 0.34
 
 c_triangle = 0.2
 c_square = 0.15
+
+pitch_offset = 0.001 # 1 mm is the minimum allowable distance between tubes
 
 ## Areas of tubes
 A_tube = np.pi * D_inner_tube ** 2 / 4

@@ -21,11 +21,7 @@ class Convergence_Graph(QWidget):
         self.figure = Figure()
         self.canvas = FigureCanvas(self.figure)
         self.ax = self.figure.add_subplot(111)
-        self.ax.set_xlabel("Iteration")
-        self.ax.set_ylabel("Qdot (W)")
-        self.ax.set_ylim(2000, 20000)
-        self.ax.set_xlim(0, 200)
-        self.ax.grid()
+        self.clear()
         
         self.index = 0
         
@@ -43,9 +39,16 @@ class Convergence_Graph(QWidget):
         self.ax.grid()
         self.canvas.draw_idle()
 
-        self.update()
-
         self.index += 1
+    
+    def clear(self):
+        self.ax.clear()
+        self.ax.set_xlabel("Iteration")
+        self.ax.set_ylabel("Qdot (W)")
+        self.ax.set_ylim(2000, 20000)
+        self.ax.set_xlim(0, 200)
+        self.ax.grid()
+        self.canvas.draw_idle()
 
 class State_Space_Graph(QWidget):
     def __init__(self):
@@ -56,11 +59,7 @@ class State_Space_Graph(QWidget):
 
         # add colourbar to graph
         self.ax = self.figure.add_subplot(111)
-        self.ax.set_xlabel("Tubes per stage")
-        self.ax.set_ylabel("Baffles per stage")
-        self.ax.set_ylim(0, 31)
-        self.ax.set_xlim(0, 10)
-        self.ax.grid()
+        self.clear()
 
         # display a colour map legend
         
@@ -81,6 +80,16 @@ class State_Space_Graph(QWidget):
         # get colour from Qdot
         c = plt.cm.jet((Qdot - 2000) / 25000)
         self.ax.plot(tubes, baffles, 'o', color = c)
+        self.ax.grid()
+        self.canvas.draw_idle()
+
+    
+    def clear(self):
+        self.ax.clear()
+        self.ax.set_xlabel("Tubes per stage")
+        self.ax.set_ylabel("Baffles per stage")
+        self.ax.set_ylim(0, 31)
+        self.ax.set_xlim(0, 10)
         self.ax.grid()
         self.canvas.draw_idle()
 

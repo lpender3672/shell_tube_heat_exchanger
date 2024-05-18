@@ -10,8 +10,21 @@ from scipy.optimize import NonlinearConstraint, BFGS
 from scipy.optimize import minimize as scipy_minimize
 from scipy.optimize import shgo as scipy_shgo
 
+import logging
+
 from constants import *
 from heat_exchanger import Heat_Exchanger, pitch_from_tubes
+
+
+class QTextEditLogger(logging.Handler):
+    def __init__(self, parent):
+        super().__init__()
+        self.widget = QtWidgets.QPlainTextEdit(parent)
+        self.widget.setReadOnly(True)
+
+    def emit(self, record):
+        msg = self.format(record)
+        self.widget.appendPlainText(msg)
 
 
 class Optimise_Result():
@@ -30,14 +43,20 @@ class Optimise_Widget(QWidget):
         self.template = None
         self.conditions = None
 
-        self.iteration_callback = None
+        self.iteration_callbacks = []
 
         layout = QGridLayout()
 
         optimise_label = QLabel("Optimise Heat Exchanger")
         optimise_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.list_widget = QListWidget()
+        self.log_text = QTextEditLogger(self)
+
+        self.log_text.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        logging.getLogger().addHandler(self.log_text)
+
+        logging.getLogger().setLevel(logging.INFO)
+
 
         self.start_optimise_button = QPushButton("Run Optimisation")
 
@@ -47,16 +66,11 @@ class Optimise_Widget(QWidget):
         self.start_optimise_button.clicked.connect(self.start_optimiser)
         self.cancel_optimise_button.clicked.connect(self.cancel_optimise)
 
-         # make list widget uneditable
-        self.list_widget.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        # make list widget unselectable
-        self.list_widget.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
-
 
         layout.addWidget(optimise_label, 0, 6, 1, 2)
         layout.addWidget(self.start_optimise_button, 1, 6, 1, 2)
         layout.addWidget(self.cancel_optimise_button, 2, 6, 1, 2)
-        layout.addWidget(self.list_widget, 3, 6, 1, 2)
+        layout.addWidget(self.log_text.widget, 3, 6, 1, 2)
 
         self.setLayout(layout)
 
@@ -66,8 +80,8 @@ class Optimise_Widget(QWidget):
     def set_conditions(self, conditions):
         self.conditions = conditions
 
-    def set_iteration_callback(self, callback):
-        self.iteration_callback = callback
+    def add_iteration_callback(self, callback):
+        self.iteration_callbacks.append(callback)
 
     def start_optimiser(self):
 
@@ -101,21 +115,22 @@ class Optimise_Widget(QWidget):
             # brute force worker
             worker = Brute_Force_Worker(heat_exchanger)
 
-            if self.iteration_callback:
-                worker.signal.iteration_update.connect(self.iteration_callback)
+            for callback in self.iteration_callbacks:
+                worker.signal.iteration_update.connect(callback)
+
             worker.signal.finished.connect(self.on_optimisation_finished)
             
             self.workers.append(worker)
             self.thread_pool.start(worker)
 
         
-        print("Optimisation started")
+        logging.info("Optimisation started")
 
     def on_optimisation_finished(self, result):
         self.cancel_optimise()
 
         if result.success:
-            print("Optimisation Successful")
+            logging.info("Optimisation Successful")
 
             L = result.heat_exchanger.L_hot_tube
 
@@ -124,14 +139,15 @@ class Optimise_Widget(QWidget):
 
             mass = result.heat_exchanger.calc_mass()
 
-            print(f"L_tube = {L}, tubes per stage = {tubes}, baffles per stage = {baffles}, mass = {mass}")
-            print(f"mdot_cold = {result.heat_exchanger.mdot[0]}, mdot_hot = {result.heat_exchanger.mdot[1]}")
-            print(f"Qdot = {result.heat_exchanger.Qdot}, effectiveness = {result.heat_exchanger.effectiveness}")
+
+            logging.info(f"L_tube = {L}, tubes per stage = {tubes}, baffles per stage = {baffles}, mass = {mass}")
+            logging.info(f"mdot_cold = {result.heat_exchanger.mdot[0]}, mdot_hot = {result.heat_exchanger.mdot[1]}")
+            logging.info(f"Qdot = {result.heat_exchanger.Qdot}, effectiveness = {result.heat_exchanger.effectiveness}")
 
             self.optimal_found.emit(result.heat_exchanger)
         
         else:
-            print("Optimisation Failed")
+            logging.info("Optimisation Failed")
 
     def cancel_optimise(self):
         self.start_optimise_button.setEnabled(True)
@@ -326,8 +342,10 @@ class Brute_Force_Worker(QRunnable):
         if self.heat_exchanger.calc_mass() > 1.20:
             return False
 
-        return True
+        if np.min(self.heat_exchanger.get_pitch()) < D_outer_tube + pitch_offset:
+            return False
 
+        return True
 
     def run(self):
 
@@ -338,8 +356,6 @@ class Brute_Force_Worker(QRunnable):
         
         best_design = copy.deepcopy(self.heat_exchanger)
         best_design.Qdot = 0
-
-        print(max_tubes_per_section)
 
         lengths = np.linspace(0.15, 0.35 - 2 * end_cap_width, 20)
         
