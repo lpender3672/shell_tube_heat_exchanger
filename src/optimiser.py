@@ -13,7 +13,7 @@ from scipy.optimize import shgo as scipy_shgo
 import logging
 
 from constants import *
-from heat_exchanger import Heat_Exchanger, pitch_from_tubes
+from heat_exchanger import Heat_Exchanger, pitch_from_tubes, build_heat_exchanger
 
 
 class QTextEditLogger(logging.Handler):
@@ -100,7 +100,7 @@ class Optimise_Widget(QWidget):
 
         self.workers = []
         for i in range(self.num_threads):
-            heat_exchanger = self.template.get_random_geometry_copy()
+            heat_exchanger = copy.deepcopy(self.template)
             heat_exchanger.set_conditions(self.conditions)
             heat_exchanger.id = i
 
@@ -213,6 +213,13 @@ class Scipy_Optimise_Worker(QRunnable):
         self.constraints = constraints
 
     def objective_function(self, x):
+
+        cold_sections = self.heat_exchanger.cold_flow_sections
+        hot_sections = self.heat_exchanger.hot_flow_sections
+
+        l = x[0]
+        baffles = x[1:cold_sections + 1]
+        tubes = x[cold_sections + 1:]
 
         self.heat_exchanger.set_geometry(0.35, x[0], x[1])
     
@@ -335,6 +342,8 @@ class Brute_Force_Worker(QRunnable):
         self.id = id
         self.cancelled = False
 
+        self.log_interval = 1000
+
         self.signal = Worker_Signals()
 
     def check_constraints(self):
@@ -350,41 +359,75 @@ class Brute_Force_Worker(QRunnable):
     def run(self):
 
         max_tubes = 24
-        max_baffles_per_section = 30
-
+        max_baffles = 30
+        
+        max_baffles_per_section = max_baffles // self.heat_exchanger.cold_flow_sections
         max_tubes_per_section = max_tubes // self.heat_exchanger.hot_flow_sections
         
-        best_design = copy.deepcopy(self.heat_exchanger)
-        best_design.Qdot = 0
+        best_design_Qdot = 0
+        best_design = None
 
         lengths = np.linspace(0.15, 0.35 - 2 * end_cap_width, 20)
         
-        for baffles in range(1, max_baffles_per_section):
-            for tubes in range(1, max_tubes_per_section):
+        # create a (hot_flow_sections + cold_flow_sections) dimensional meshgrid of all possible geometries
+        baffles = np.arange(1, max_baffles_per_section)
+        tubes = np.arange(1, max_tubes_per_section)
 
-                for l in lengths:
-
-                    self.heat_exchanger.set_geometry(l, tubes, baffles)
-
-                    if not self.check_constraints():
-                        continue
-
-                    result = self.heat_exchanger.compute_effectiveness(method = 'LMTD', optimiser = "fsolve")
-                    
-                    output = [self.heat_exchanger.Qdot, self.heat_exchanger.effectiveness]
-                    x = [tubes, baffles]
-                    self.signal.iteration_update.emit([x, output])
-
-                    if not result:
-                        continue
-
-                    if self.heat_exchanger.Qdot > best_design.Qdot:
-                        best_design = copy.deepcopy(self.heat_exchanger)
-
-                    if self.cancelled:
-                        return
+        mgrid_args = [lengths]
+        mgrid_args.extend([baffles for _ in range(self.heat_exchanger.cold_flow_sections)])
+        mgrid_args.extend([tubes for _ in range(self.heat_exchanger.hot_flow_sections)])
         
+        mgrid = np.meshgrid(*mgrid_args, indexing='ij')
+        
+        n = np.prod(mgrid[0].shape)
+        l_vals = mgrid[0].flatten()
+        baffle_vals = np.array([mgrid[i].flatten() for i in range(1, self.heat_exchanger.cold_flow_sections + 1)])
+        tube_vals = np.array([mgrid[i].flatten() for i in range(self.heat_exchanger.cold_flow_sections + 1, len(mgrid))])
+
+        for i in range(n):
+
+            x = [l_vals[i], tube_vals[:, i], baffle_vals[:, i]]
+            self.heat_exchanger.set_geometry( *x)
+
+            if i % self.log_interval == 0:
+                print(f"Worker {self.id} iteration {i} of {n}")
+                logging.info(f"Worker {self.id} iteration {i} of {n}")
+
+            if not self.check_constraints():
+                continue
+
+            result = self.heat_exchanger.compute_effectiveness(method = 'LMTD', optimiser = "fsolve")
+
+            #output = [self.heat_exchanger.Qdot, self.heat_exchanger.effectiveness]
+            #x = [tubes, baffles]
+            #self.signal.iteration_update.emit([x, output])
+            
+            if not result:
+                continue
+            
+            try:
+                Qdot = self.heat_exchanger.Qdot
+                assert Qdot is not None
+            except (AttributeError, AssertionError):
+                continue
+
+            if self.heat_exchanger.Qdot > best_design_Qdot:
+                best_design_Qdot = self.heat_exchanger.Qdot
+                best_design = x
+
+            if self.cancelled:
+                return
+        
+
+        result = build_heat_exchanger(  best_design[1], best_design[2], best_design[0], 
+                                        self.heat_exchanger.flow_path_entries_side, 
+                                        Pattern.SQUARE)
+        result.set_conditions(self.heat_exchanger.Tin)
+        result.compute_effectiveness(method = 'LMTD', optimiser = 'fsolve')
+
         self.signal.finished.emit(
-            Optimise_Result(best_design, True)
+            Optimise_Result(result, True)
             )
+
+            
         

@@ -159,6 +159,8 @@ class Heat_Exchanger_Definition(QWidget):
         
         self.stage_table.resizeColumnsToContents()
         self.stage_table.resizeRowsToContents()
+
+        self.update_heat_exchanger()
     
     def on_vertical_header_clicked(self, row):
         if row == 0:
@@ -202,6 +204,8 @@ class Heat_Exchanger_Definition(QWidget):
 
         self.stage_table.resizeColumnsToContents()
         self.stage_table.resizeRowsToContents()
+
+        self.update_heat_exchanger()
 
     def reset_table(self):
 
