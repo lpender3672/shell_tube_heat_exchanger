@@ -571,22 +571,33 @@ class Heat_Exchanger():
 
         self.L_hot_tube = length
 
-        self.total_tubes = 0
-        self.total_baffles = 0
+        hot_stages =  self.hot_flow_sections
+        cold_stages =  self.cold_flow_sections
+
         
+        if isinstance(tubes, int):
+            tubes = [tubes] * hot_stages
+        if isinstance(baffles, int):
+            baffles = [baffles] * cold_stages
+
+        assert len(tubes) == hot_stages
+        assert len(baffles) == cold_stages
+
+        self.total_tubes = sum(tubes)
+        self.total_baffles = sum(baffles)
+        
+        i = 0
         for element in self.hot_path.elements:
             if isinstance(element, Heat_Transfer_Element):
-                element.tubes = tubes
-                element.baffles = baffles
+                element.tubes = tubes[i]
+                element.baffles = baffles[i % cold_stages]
+                i += 1
 
-                self.total_tubes += element.tubes
-                pattern = element.pattern
-
-        for element in self.cold_path.elements:
+        for i, element in enumerate(self.cold_path.elements):
             if isinstance(element, Heat_Transfer_Element):
-                element.tubes = tubes
-                element.baffles = baffles
-                self.total_baffles += element.baffles
+                element.tubes = int(tubes[i % hot_stages] * hot_stages / cold_stages)
+                element.baffles = baffles[i]
+                i += 1
 
     
     def get_random_geometry_copy(self, constraints = None):
@@ -606,6 +617,9 @@ def build_heat_exchanger(tubes_per_stage, baffles_per_stage, length, flow_path_e
 
     hot_stages = len(tubes_per_stage)
     cold_stages = len(baffles_per_stage)
+
+    if isinstance(hot_tube_pattern, Pattern):
+        hot_tube_pattern = [hot_tube_pattern] * hot_stages
 
     if cold_tube_pattern is None:
         cold_tube_pattern = hot_tube_pattern
