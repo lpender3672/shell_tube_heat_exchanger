@@ -175,16 +175,29 @@ def GET_F(T1in, T2in, T1out, T2out, N_shell, N_tube, flow_path_entries_side):
     return F
 '''
 
-def pitch_from_tubes(tubes, pattern):
+def pitch_from_tubes(N_tubes, pattern):
     # approximate pitch based on number of tubes
-    if pattern == Pattern.SQUARE:
+    '''if pattern == Pattern.SQUARE:
         k = 1 / np.sqrt(2)
     elif pattern == Pattern.TRIANGLE:
         k = 1 / np.sqrt(3)
     else:
         logging.error("Unknown pattern")
 
-    pitch = k * D_shell / np.sqrt(tubes)
+    pitch = k * D_shell / np.sqrt(N_tubes)
+    '''
+    if pattern == Pattern.SQUARE:
+        a = D_shell*(np.pi / 4)**(1/2)
+        pitch = a * (N_tubes)**(-1/2)
+        print("square", pitch)
+    
+    elif pattern == Pattern.TRIANGLE:
+        a = D_shell*(np.pi/3**(1/2))**(1/2)
+        n = -1/2 + 1/2 * (1+8*N_tubes)**(1/2)
+        pitch = a / (n + 3**(1/2) - 1)
+        print("triangle", pitch)
+    else:
+        logging.error("Unknown pattern")
 
     if pitch < D_outer_tube:
         logging.error("Pitch is less than the tube diameter")

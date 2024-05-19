@@ -65,7 +65,7 @@ class MainWindow(QMainWindow):
 
         self.show()
 
-        HXchanger = build_heat_exchanger([2,2,2,2,2,2,2,2], [2,0], 0.35, Side.OPPOSITE, [Pattern.SQUARE]*8)
+        HXchanger = build_heat_exchanger([14], [12], 0.35, Side.OPPOSITE, [Pattern.SQUARE]*4)
 
 
         self.optimise_widget.set_design_template(HXchanger)
@@ -129,4 +129,4 @@ if __name__ == "__main__":
     window = MainWindow()
     app.aboutToQuit.connect(window.on_exit)
 
-    #app.exec()
+    app.exec()
