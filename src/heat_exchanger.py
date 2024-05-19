@@ -189,13 +189,13 @@ def pitch_from_tubes(N_tubes, pattern):
     if pattern == Pattern.SQUARE:
         a = D_shell*(np.pi / 4)**(1/2)
         pitch = a * (N_tubes)**(-1/2)
-        print("square", pitch)
+        #print("square", pitch)
     
     elif pattern == Pattern.TRIANGLE:
         a = D_shell*(np.pi/3**(1/2))**(1/2)
         n = -1/2 + 1/2 * (1+8*N_tubes)**(1/2)
         pitch = a / (n + 3**(1/2) - 1)
-        print("triangle", pitch)
+        #print("triangle", pitch)
     else:
         logging.error("Unknown pattern")
 
