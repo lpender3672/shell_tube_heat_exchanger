@@ -65,27 +65,29 @@ class MainWindow(QMainWindow):
 
         self.show()
 
-        HXchanger = build_heat_exchanger([13], [9], 0.35, Side.OPPOSITE, [Pattern.SQUARE])
+        HXchanger = build_heat_exchanger([2,2,2,2,2,2,2,2], [2,0], 0.35, Side.OPPOSITE, [Pattern.SQUARE]*8)
 
 
         self.optimise_widget.set_design_template(HXchanger)
         self.optimise_widget.set_conditions([20,60])
         
-        """
-        print(HXchanger.calc_mass())
+        #print(HXchanger.calc_mdot())
         HXchanger.set_conditions([20,60])
-        success = HXchanger.compute_effectiveness(method='LMTD', optimiser='brute')
+        success = HXchanger.compute_effectiveness(method='LMTD')
         if success:
             print(HXchanger.Qdot)
-            print(HXchanger.LMTD)
+            print(HXchanger.DT_min/(HXchanger.cold_flow_sections*HXchanger.Fscale *HXchanger.LMTD))
             print(HXchanger.effectiveness)
+            print(HXchanger.Fscale)
 
 
         success = HXchanger.compute_effectiveness(method='E_NTU')
         if success:
             print(HXchanger.Qdot)
-            print(HXchanger.NTU)
-        """
+            print(HXchanger.ntu)
+            print(HXchanger.effectiveness)
+            print(HXchanger.Qdot/(HXchanger.area_times_H*HXchanger.LMTD))
+
 
         self.attach_signals()
         self.HE_definition.load_heat_exchanger(HXchanger)
@@ -127,4 +129,4 @@ if __name__ == "__main__":
     window = MainWindow()
     app.aboutToQuit.connect(window.on_exit)
 
-    app.exec()
+    #app.exec()
