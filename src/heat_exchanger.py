@@ -48,7 +48,78 @@ def logmeanT(T1in, T1out, T2in, T2out):
 
     return (dt1 - dt2) / np.log(dt1 / dt2)
 
+class e_NTU():
 
+    ##Handbook of Heat Transfer 3rd Edition MCGRAW-HILL, Chapter 17
+    def __init__(self, areatimesH, C_1, C_2, N_shell, N_tube, flow_path_entries_side):
+        self.N_shell = N_shell
+        self.N_tube = N_tube
+        self.flow_path_entries_side = flow_path_entries_side
+
+        self.C_1 = C_1
+        self.C_2 = C_2
+        self.C_min = np.min([C_1, C_2])
+        self.C_max = np.max([C_1, C_2])
+        self.C_ntu = self.C_min/self.C_max
+        self.ntu_overall = areatimesH / self.C_min 
+        self.ntu = self.ntu_overall / self.N_shell                                          ## essentially a cascade of N 1-2m shell-and-tubes, heat transfer split evenly between shell passes
+
+
+    
+    def effectiveness(self):
+
+        if ((self.N_tube / self.N_shell) % 2 == 0):                                                 ## N-2mN shell-and-tube (N shell passes, 2mN tube passes)
+            e_1 = 2 / (1 + self.C_ntu + (1 + self.C_ntu**2)**(1/2) * (1 + np.exp(-self.ntu *
+                    (1 + self.C_ntu**2)**(1/2)))/(1-np.exp(-self.ntu * (1 + self.C_ntu**2)**(1/2))))
+            e = (((1 - e_1 * self.C_ntu)/(1 - e_1))**self.N_shell - 1) / \
+                (((1 - e_1 * self.C_ntu)/(1 - e_1))**self.N_shell - self.C_ntu)
+        
+        elif (self.N_shell == 1 and self.N_tube == 1):
+            if (self.flow_path_entries_side == Side.OPPOSITE):              ##single pass counterflow
+                if (self.C_ntu >=0 and self.C_ntu < 1):
+                    e = (1-np.exp(-self.ntu*(1-self.C_ntu)))/(1-self.C_ntu*np.exp(-self.ntu*(1-self.C_ntu)))
+                elif (self.C_ntu ==1):
+                    e = self.ntu/(1+self.ntu)     
+
+            elif (self.flow_path_entries_side == Side.SAME):                ##single pass parallelflow
+                    e = (1-np.exp(-self.ntu*(1+self.C_ntu)))/(1+self.C_ntu)
+        
+        elif (self.N_shell == 1 and self.N_tube == 3 and self.flow_path_entries_side == Side.OPPOSITE): ## 1-3 shell-and-tube one parallelflow, 2 counterflow
+            L = np.zeros(3)
+            X = np.zeros_like(L)
+            L[0] = -3/2 + (9/4 + self.C_ntu*(self.C_ntu - 1))**(1/2)
+            L[1] = -3/2 - (9/4 + self.C_ntu*(self.C_ntu - 1))**(1/2)
+            L[2] = -self.C_ntu
+            delta = L[0] - L[1]
+            for i in range(len(L)):
+                X[i] = np.exp(L[i]*self.ntu/3)/(2*delta)
+            if (self.C_ntu >=0 and self.C_ntu < 1):
+                A = X[0]*(self.C_ntu + L[0])*(self.C_ntu - L[1])/(2*L[0]) - X[2]*delta - X[1] * (self.C_ntu + L[1]) * (self.C_ntu - L[0]) / (2*L[1]) + 1/(1-self.C_ntu)
+            elif (self.C_ntu == 1):
+                A = -np.exp(-self.ntu)/18 - np.exp(self.ntu/3)/2 + (self.ntu + 5)/9
+            B = X[0] * (self.C_ntu - L[1]) - X[1] * (self.C_ntu - L[0]) + X[2] * delta
+            C = X[1] * (3*self.C_ntu + L[0]) - X[0] * (3*self.C_ntu + L[1]) + X[2] * delta
+            e = 1/self.C_ntu * (1 - C/(A*C + B**2))
+
+        else:
+            e = None
+            logging.critical("Error: e_NTU undefined for this configuration")
+            raise NotImplementedError("e_NTU for this configuration not implemented yet")
+            
+        return e
+    
+    def F_factor(self):                                                                         ##for the overall HX, use ntu_overall
+        e = e_NTU.effectiveness(self)
+        if (self.C_ntu >=0 and self.C_ntu < 1):
+            F = 1/(self.ntu_overall * (1 - self.C_ntu)) * np.log((1-self.C_ntu * e)/(1-e))
+        elif (self.C_ntu == 1):
+            F = e/(self.ntu_overall * (1 - e))
+
+        return F
+
+
+
+'''
 def E_NTU(NTU, C_rel, N_shell, N_tube):
     # N cold passes; 2N, 4N,... Hot passes
     if ((N_tube / N_shell) % 2 == 0):
@@ -67,36 +138,34 @@ def E_NTU(NTU, C_rel, N_shell, N_tube):
         e = None
     return e
 
-def GET_F(T1in, T2in, T1out, T2out, N, flow_path_entries_side):
-    # Chemical Engineering Design (6th edition 2020)
+def GET_F(T1in, T2in, T1out, T2out, N_shell, N_tube, flow_path_entries_side):
+    # A General Expression for the Determination of the Log Mean Temperature Correction Factor for Shell and Tube Heat Exchangers (Ahmad Fakheri) 2003
     ## only for even tube passes
-    if N > 1:
+    if ((N_tube / N_shell) % 2 == 0):
         p = (T1out - T1in)/(T2in - T1in)
-        r = np.min([(T2in - T2out)/(T1out - T1in), (T2in - T2out)/(T1out - T1in)])
-        #r = (T2in - T2out)/(T1out - T1in)
+        r = np.min([(T2in - T2out)/(T1out - T1in), (T1out - T1in)/(T2in - T2out)])
         if (r != 1):
             s = (r**2 + 1)**0.5 / (r-1)    
-            w = ((1-p*r)/(1 - p))**(1/N)
+            w = ((1-p*r)/(1 - p))**(1/N_shell)
             F = s*np.log(w)/np.log((1 + w - s + s*w)/(1 + w + s - s*w))
 
         elif (r == 1):
-            u = (N - N*p)/(N - N*p + p)
+            u = (N_shell - N_shell*p)/(N_shell - N_shell*p + p)
             F = 2**(1/2)*((1-u)/u)*(np.log((u/(1-u) + 2**-(1/2))/((u/(1-u) - 2**-(1/2)))))**(-1)
-    elif N == 1:
 
-        if flow_path_entries_side == Side.OPPOSITE:
-            F = 1
-        else:
-            logging.critical("Error: F undefined for this configuration")
-            raise NotImplementedError("F for coflow not implemented yet")
-            # page 1286 of Holman, J. P. “Heat Transfer”. 8th Edition, McGraw Hill.
-            # doesnt converge
-            p = (T1out - T1in)/(T2in - T1in)
-            r = (T2in - T2out)/(T1out - T1in)
-            if r == 1:
-                F = 2 * p / ((p - 1) * np.log(1 - 2*p))
-            else:
-                F = (r + 1) * np.log((1 - r * p) / (1 - p)) / ((r - 1) * np.log(1 - p * (1 + r)))
+    elif (N_shell == 1 and N_tube == 1):
+            if flow_path_entries_side == Side.OPPOSITE:
+                F = 1
+
+            elif flow_path_entries_side == Side.SAME:
+
+                # page 1286 of Holman, J. P. “Heat Transfer”. 8th Edition, McGraw Hill.
+                p = (T1out - T1in)/(T2in - T1in)
+                r = np.min([(T2in - T2out)/(T1out - T1in), (T1out - T1in)/(T2in - T2out)])
+                if r == 1:
+                    F = 2 * p / ((p - 1) * np.log(1 - 2*p))
+                else:
+                    F = (r + 1) * np.log((1 - r * p) / (1 - p)) / ((r - 1) * np.log(1 - p * (1 + r)))
 
     else:
         logging.critical("Error: F undefined for this configuration")
@@ -104,6 +173,7 @@ def GET_F(T1in, T2in, T1out, T2out, N, flow_path_entries_side):
         F = None
 
     return F
+'''
 
 def pitch_from_tubes(tubes, pattern):
     # approximate pitch based on number of tubes
@@ -386,23 +456,30 @@ class Heat_Exchanger():
             areatimesH += element.tubes * np.pi * D_inner_tube * self.L_hot_tube / one_over_H
 
         # TODO: investigate why this is correct
-        return areatimesH * self.cold_flow_sections
+        return areatimesH
 
     def LMTD_heat_solve_iteration(self, Tout):
-        mdot_cold, mdot_hot = self.mdot
         T1in, T2in = self.Tin
         T1out, T2out = Tout  # cold and hot outlet temperatures
         
+        areatimesH = self.calc_area_times_H(self.mdot)
+        C_1 = self.mdot[0] * cp
+        C_2 = self.mdot[1] * cp
+        N_shell = self.cold_flow_sections
+        N_tube = self.hot_flow_sections
+        
         # TODO: calculate this for various cold flow sections
+        NTU = e_NTU(areatimesH, C_1, C_2, N_shell, N_tube, self.flow_path_entries_side)
 
-        Fscale = GET_F(T1in, T2in, T1out, T2out, self.hot_flow_sections, self.flow_path_entries_side)
+        Fscale = e_NTU.F_factor(NTU)
+        self.Fscale = Fscale
         
         T1in, T2in = self.Tin
 
-        cold_eq = mdot_cold * cp * \
+        cold_eq = C_1 * \
             (T1out - T1in) - self.area_times_H * Fscale * \
             logmeanT(T1in, T1out, T2in, T2out)
-        hot_eq = mdot_hot * cp * \
+        hot_eq = C_2 * \
             (T2in - T2out) - self.area_times_H * Fscale * \
             logmeanT(T1in, T1out, T2in, T2out)
 
@@ -428,7 +505,7 @@ class Heat_Exchanger():
         
         return mdot
 
-    def compute_effectiveness(self, method = "LMTD", optimiser = 'brute'):
+    def compute_effectiveness(self, method = "LMTD", optimiser = 'fsolve'):
 
         # HYDRAULIC ANALYSIS
 
@@ -500,26 +577,24 @@ class Heat_Exchanger():
 
             N_shell = self.cold_flow_sections
             N_tube = self.hot_flow_sections
-            C_min = np.min([cp*mdot_hot, cp*mdot_cold])
-            C_max = np.max([cp*mdot_hot, cp*mdot_cold])
-            C_rel = C_min/C_max
+            C_1 = cp*mdot_cold
+            C_2 = cp*mdot_hot
+          
 
-            NTU = (self.area_times_H / self.cold_flow_sections) / C_min
+            NTU = e_NTU(self.area_times_H, C_1, C_2, N_shell, N_tube, self.flow_path_entries_side)
 
-            effectiveness = E_NTU(NTU, C_rel, N_shell, N_tube)
-            Qdot_max = (C_min * (T2in - T1in))
+            effectiveness = e_NTU.effectiveness(NTU)
+
+            Qdot_max = (NTU.C_min * (T2in - T1in))
             Qdot = effectiveness*Qdot_max
 
             self.Qdot = Qdot
-            self.NTU = NTU
+            self.ntu = NTU.ntu
 
-            Qdotmax = mdot_hot * cp * (T2in - T1in)
-
-            T1out = T1in + effectiveness * Qdotmax / (mdot_cold * cp)
-            T2out = T2in - effectiveness * Qdotmax / (mdot_hot * cp)
+            T1out = T1in + Qdot / C_1
+            T2out = T2in - Qdot / C_2
             self.Tout = [T1out, T2out]
             self.LMTD = logmeanT(T1in, T1out, T2in, T2out)
-            self.Qdot = mdot_cold * cp * (T1out - T1in)
 
             # could possibly iterate to find Fscale with the new T1out and T2out
 
