@@ -11,6 +11,7 @@ from scipy.optimize import minimize as scipy_minimize
 from scipy.optimize import shgo as scipy_shgo
 
 import logging
+import time
 
 from constants import *
 from heat_exchanger import Heat_Exchanger, pitch_from_tubes, build_heat_exchanger
@@ -36,8 +37,8 @@ class Optimise_Result():
 class Optimise_Widget(QWidget):
     optimal_found = pyqtSignal(Heat_Exchanger)
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent):
+        super().__init__(parent)
 
         self.num_threads = num_threads
         self.template = None
@@ -109,19 +110,22 @@ class Optimise_Widget(QWidget):
             # worker.build_constraints()
 
             # scipy global optimise worker
-            # worker = Scipy_Global_Optimise_Worker(heat_exchanger)
-            # worker.build_constraints()
-
+            worker = Scipy_Global_Optimise_Worker(heat_exchanger)
+            # worker.signal.moveToThread(self.thread_pool.thread())
+            
             # brute force worker
-            worker = Brute_Force_Worker(heat_exchanger)
+            # worker = Brute_Force_Worker(heat_exchanger)
 
             for callback in self.iteration_callbacks:
-                worker.signal.iteration_update.connect(callback)
+                worker.signal.iteration_update.connect(callback, Qt.ConnectionType.QueuedConnection)
 
-            worker.signal.finished.connect(self.on_optimisation_finished)
+            worker.signal.finished.connect(self.on_optimisation_finished, Qt.ConnectionType.QueuedConnection)
+
+            worker.build_constraints()
             
             self.workers.append(worker)
-            self.thread_pool.start(worker)
+            worker.run()
+            #self.thread_pool.start(worker)
 
         
         logging.info("Optimisation started")
@@ -155,7 +159,7 @@ class Optimise_Widget(QWidget):
 
 
 class Worker_Signals(QObject):
-    iteration_update = pyqtSignal(list)
+    iteration_update = pyqtSignal(np.ndarray)
     finished = pyqtSignal(Optimise_Result)
 
 class Scipy_Optimise_Worker(QRunnable):
@@ -174,64 +178,63 @@ class Scipy_Optimise_Worker(QRunnable):
     def build_constraints(self):
         
         constraints = []
-    
+
         def calc_mass(x):
-            self.heat_exchanger.set_geometry(0.35, x[0], x[1])
+            l = x[0]
+            baffles = x[1:self.heat_exchanger.cold_flow_sections + 1]
+            tubes = x[self.heat_exchanger.cold_flow_sections + 1:]
+            self.heat_exchanger.set_geometry(l, tubes, baffles)
             return self.heat_exchanger.calc_mass()
 
         # require mass < 1.20kg
-        mass_constraint = NonlinearConstraint(calc_mass, 0.5, 1.20, jac='2-point', hess=BFGS())
+        mass_constraint = NonlinearConstraint(calc_mass, 0.5, 1.20, jac='2-point')
         constraints.append(mass_constraint)
 
+        # require pitch to be greater than D_outer_tube
+        def calc_pitch(x):
+            l = x[0]
+            baffles = x[1:self.heat_exchanger.cold_flow_sections + 1]
+            tubes = x[self.heat_exchanger.cold_flow_sections + 1:]
+            self.heat_exchanger.set_geometry(l, tubes, baffles)
+            return min(self.heat_exchanger.get_pitch())
+        
+        pitch_constraint = NonlinearConstraint(calc_pitch, D_outer_tube, D_shell, jac='2-point')
+        #constraints.append(pitch_constraint)
 
         # force number of tubes and baffles to take integer values
         def integer_constraints(x):
-            # Modify x directly to enforce integer constraints
-            x[0] = x[0] % 1
-            x[1] = x[1] % 1
+            f = 100
+            x[1:] = f * (x[1:] % 1)
             return x
         
-        constraints.append({'type':'eq', 'fun': integer_constraints})
+        #constraints.append({'type':'eq', 'fun': integer_constraints})
 
-        # range constraints
-        max_tubes = 24
-        max_baffles_per_section = 30
-        max_tubes_per_section = max_tubes // self.heat_exchanger.hot_flow_sections
-
-        constraints.append({'type':'ineq', 'fun': lambda x: x[0] - 1})
-        constraints.append({'type':'ineq', 'fun': lambda x: x[1] - 1})
-        constraints.append({'type':'ineq', 'fun': lambda x: max_tubes_per_section - x[0]})
-        constraints.append({'type':'ineq', 'fun': lambda x: max_baffles_per_section - x[1]})
-
-        # require hot and cold compressor rises greater than HX pressure drops (so comp_rise - pressure_drop > 0)
-        flow_range_constraint = NonlinearConstraint(self.heat_exchanger.calc_mdot, 
-                                                    [cold_side_compressor_characteristic_2024[0,0],hot_side_compressor_characteristic_2024[0,0]], 
-                                                    [cold_side_compressor_characteristic_2024[0,-1],hot_side_compressor_characteristic_2024[0,-1]], 
-                                                    jac='2-point', hess=BFGS())
-        #constraints.append(flow_range_constraint)
+        # length constraint
+        length_constraint = NonlinearConstraint(lambda x: x[0], 0.15, 0.35 - 2 * end_cap_width, jac='2-point')
+        #constraints.append(length_constraint)
 
         self.constraints = constraints
 
-    def objective_function(self, x):
 
-        cold_sections = self.heat_exchanger.cold_flow_sections
-        hot_sections = self.heat_exchanger.hot_flow_sections
+    def objective_function(self, x, *args):
 
         l = x[0]
-        baffles = x[1:cold_sections + 1]
-        tubes = x[cold_sections + 1:]
+        baffles = x[1:self.heat_exchanger.cold_flow_sections + 1]
+        tubes = x[self.heat_exchanger.cold_flow_sections + 1:]
 
-        self.heat_exchanger.set_geometry(0.35, x[0], x[1])
-    
+        self.heat_exchanger.set_geometry(l, tubes, baffles)
+
         result = self.heat_exchanger.compute_effectiveness(method = 'LMTD')
 
-        #if not result:  return np.inf
+        if not result:
+            return np.inf
+
         if self.iteration_count % self.emit_interval == 0:
             output = [self.heat_exchanger.Qdot, self.heat_exchanger.effectiveness]
-            self.signal.iteration_update.emit([x, output])
+            update = np.array([x, output], dtype=object)
+            self.signal.iteration_update.emit(update)
 
         self.iteration_count += 1
-
         return 1e4 / self.heat_exchanger.Qdot
         
 
@@ -245,94 +248,72 @@ class Scipy_Optimise_Worker(QRunnable):
         rand_tubes = np.random.randint(1, max_baffles_per_section)
         rand_baffles = np.random.randint(1, max_tubes_per_section)
 
-        res = scipy_minimize(
-                        self.objective_function, 
-                        [rand_tubes, rand_baffles], 
-                        method='trust-constr',
-                        jac="2-point",
-                        hess=BFGS(),
-                        constraints=self.constraints,
-                        options={'verbose': 1, 'maxiter':1000}
-                        )
+        x0 = [0.3]
+        x0.extend([rand_baffles for _ in range(self.heat_exchanger.cold_flow_sections)])
+        x0.extend([rand_tubes for _ in range(self.heat_exchanger.hot_flow_sections)])
 
-        result = Optimise_Result(
-            self.heat_exchanger,
-            res.success
-        )
+        try:
+            res = scipy_minimize(
+                            self.objective_function, 
+                            x0, 
+                            method='trust-constr',
+                            jac="2-point",
+                            hess=BFGS(),
+                            constraints=self.constraints,
+                            options={'verbose': 1, 'maxiter':1000}
+                            )
+        except Exception as e:
+            print(e)
+        
+        else:
+            result = Optimise_Result(
+                self.heat_exchanger,
+                res.success
+            )
 
-        self.signal.finished.emit(result)
+            self.signal.finished.emit(result)
 
-class Scipy_Global_Optimise_Worker(QRunnable):
+class Scipy_Global_Optimise_Worker(Scipy_Optimise_Worker):
     def __init__(self, heat_exchanger):
-        super().__init__()
-
-        self.heat_exchanger = heat_exchanger
-        self.cancelled = False
-        self.iteration_count = 0
-        self.emit_interval = 10
-
-        self.signal = Worker_Signals()
-
-    def objective_function(self, x, *args):
-
-        self.heat_exchanger.set_geometry(0.35, x[0], x[1])    
-        result = self.heat_exchanger.compute_effectiveness(method = 'LMTD')
-
-        if self.iteration_count % self.emit_interval == 0:
-            output = [self.heat_exchanger.Qdot, self.heat_exchanger.effectiveness]
-            self.signal.iteration_update.emit([x, output])
-
-        self.iteration_count += 1
-        return 1e4 / self.heat_exchanger.Qdot
-
-    def build_constraints(self):
-        
-        constraints = []
-
-        def calc_mass(x):
-            self.heat_exchanger.set_geometry(0.35, x[0], x[1])
-            return self.heat_exchanger.calc_mass()
-
-        # require mass < 1.20kg
-        mass_constraint = NonlinearConstraint(calc_mass, 0.5, 1.20, jac='2-point')
-        constraints.append(mass_constraint)
-
-        # require pitch to be greater than D_outer_tube
-        def calc_pitch(x):
-            return pitch_from_tubes(x[0], Pattern.SQUARE)
-        
-        pitch_constraint = NonlinearConstraint(calc_pitch, D_outer_tube, D_shell, jac='2-point')
-        constraints.append(pitch_constraint)
-
-        # force number of tubes and baffles to take integer values
-        def integer_constraints(x):
-            x[0] = x[0] % 1
-            x[1] = x[1] % 1
-            return x
-        
-        constraints.append({'type':'eq', 'fun': integer_constraints})
-
-        self.constraints = constraints
+        super().__init__(heat_exchanger)
 
     def run(self):
 
-        max_tubes = 24
-        max_baffles_per_section = 30
-        max_tubes_per_section = max_tubes // self.heat_exchanger.hot_flow_sections
+        max_tubes = 24 // self.heat_exchanger.hot_flow_sections
+        max_baffles = 30 // self.heat_exchanger.cold_flow_sections
 
-        result = scipy_shgo(self.objective_function, 
-                            bounds = [(0.5, 50), 
-                                      (0.5, 50)],
-                            constraints=self.constraints, 
-                            iters=100,
-                            options={'verbose': 1},
-                            sampling_method='sobol'
-                            )
+        length_bounds = (0, 0.35 - 2 * end_cap_width)
+        tube_bounds = (1, max_tubes)
+        baffle_bounds = (1, max_baffles)
+
+        bounds = [length_bounds]
+        bounds.extend([baffle_bounds for _ in range(self.heat_exchanger.cold_flow_sections)])
+        bounds.extend([tube_bounds for _ in range(self.heat_exchanger.hot_flow_sections)])
+
+        complexity = 1 + self.heat_exchanger.cold_flow_sections + self.heat_exchanger.hot_flow_sections
+
+        try:
+            result = scipy_shgo(self.objective_function, 
+                                bounds = bounds,
+                                constraints=self.constraints,
+                                n = 100 * complexity,
+                                options = {
+                                    'maxtime' : 60,
+                                    'f_min' : 0.5,
+                                    'f_tol' : 0.001,
+                                },
+                                sampling_method='sobol',
+                                )
+        except Exception as e:
+            print(e)
         
-        self.signal.finished.emit(
-            Optimise_Result(self.heat_exchanger, result.success)
-            )
-        
+        else:
+            print(result)
+
+            self.signal.finished.emit(
+                Optimise_Result(self.heat_exchanger, result.success)
+                )        
+
 
 class Brute_Force_Worker(QRunnable):
     def __init__(self, heat_exchanger, id = 0):
@@ -389,9 +370,6 @@ class Brute_Force_Worker(QRunnable):
             x = [l_vals[i], tube_vals[:, i], baffle_vals[:, i]]
             self.heat_exchanger.set_geometry( *x)
 
-            if i % self.log_interval == 0:
-                print(f"Worker {self.id} iteration {i} of {n}")
-                logging.info(f"Worker {self.id} iteration {i} of {n}")
 
             if not self.check_constraints():
                 continue

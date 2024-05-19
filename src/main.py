@@ -33,19 +33,19 @@ class MainWindow(QMainWindow):
 
         layout = QtWidgets.QGridLayout()
 
-        self.optimise_widget = Optimise_Widget()
+        self.optimise_widget = Optimise_Widget(self)
 
-        self.HE_definition = Heat_Exchanger_Definition()        
+        self.HE_definition = Heat_Exchanger_Definition(self)        
         layout.addWidget(self.HE_definition, 0, 0, 3, 2)
 
         
-        self.HE_diagram = Heat_Exchanger_Diagram(600, 400)
+        self.HE_diagram = Heat_Exchanger_Diagram(self, 600, 400)
 
         diagram_label = QLabel("Heat Exchanger Diagram")
 
         self.HE_diagram.setFixedWidth(600)
         
-        self.results_widget = Results_Widget()
+        self.results_widget = Results_Widget(self)
 
     
         layout.addWidget(diagram_label, 0, 2, 1, 2)
@@ -65,7 +65,7 @@ class MainWindow(QMainWindow):
 
         self.show()
 
-        HXchanger = build_heat_exchanger([2,2,2,2,2,2,2,2], [2,0], 0.35, Side.OPPOSITE, [Pattern.SQUARE]*8)
+        HXchanger = build_heat_exchanger([2], [2], 0.31, Side.OPPOSITE, Pattern.SQUARE)
 
 
         self.optimise_widget.set_design_template(HXchanger)
@@ -101,6 +101,10 @@ class MainWindow(QMainWindow):
         # This sets the design template for the optimiser to the manually set heat exchanger
         self.HE_definition.HE_update_signal.connect(self.optimise_widget.set_design_template)
 
+        # This attaches the heat exchanger update signal to the results widget
+        self.HE_definition.HE_update_signal.connect(self.results_widget.set_heat_exchanger)
+
+
         # This attaches the graph update functions called each iteration
         self.optimise_widget.add_iteration_callback(
             self.results_widget.convergence_graph.new_data
@@ -129,4 +133,4 @@ if __name__ == "__main__":
     window = MainWindow()
     app.aboutToQuit.connect(window.on_exit)
 
-    #app.exec()
+    app.exec()

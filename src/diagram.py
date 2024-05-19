@@ -47,8 +47,8 @@ class Cycle_Button(QWidget):
 class Heat_Exchanger_Definition(QWidget):
     HE_update_signal = pyqtSignal(Heat_Exchanger)
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent):
+        super().__init__(parent)
 
         layout = QGridLayout()
 
@@ -107,6 +107,7 @@ class Heat_Exchanger_Definition(QWidget):
 
         self.setLayout(layout)
 
+        self.loading = False
         self.stage_table.itemChanged.connect(self.update_heat_exchanger)
         self.input_side.enum_update_signal.connect(self.update_heat_exchanger)
         self.length_input.editingFinished.connect(self.update_heat_exchanger)
@@ -160,7 +161,7 @@ class Heat_Exchanger_Definition(QWidget):
         self.stage_table.resizeColumnsToContents()
         self.stage_table.resizeRowsToContents()
 
-        self.update_heat_exchanger()
+        #self.update_heat_exchanger()
     
     def on_vertical_header_clicked(self, row):
         if row == 0:
@@ -228,6 +229,7 @@ class Heat_Exchanger_Definition(QWidget):
         self.cold_passes = 1
 
     def load_heat_exchanger(self, heat_exchanger):
+        self.loading = True
 
         self.reset_table()
 
@@ -236,8 +238,10 @@ class Heat_Exchanger_Definition(QWidget):
         i = 0
         for element in heat_exchanger.cold_path.elements:
             if isinstance(element, Heat_Transfer_Element):
-                self.stage_table.cellWidget(i, 0).setValue(element.baffles)
-                self.stage_table.cellWidget(i, 1).setCurrentValue(element.pattern)
+                self.stage_table.cellWidget(i, 0).setValue(
+                    int(element.baffles))
+                self.stage_table.cellWidget(i, 1).setCurrentValue(
+                    element.pattern)
                 i += 1
 
         for i in range(1, heat_exchanger.hot_flow_sections):
@@ -246,7 +250,8 @@ class Heat_Exchanger_Definition(QWidget):
         i = 0
         for element in heat_exchanger.hot_path.elements:
             if isinstance(element, Heat_Transfer_Element):
-                self.stage_table.cellWidget(i, 2).setValue(element.tubes)
+                self.stage_table.cellWidget(i, 2).setValue(
+                    int(element.tubes))
                 self.stage_table.cellWidget(i, 3).setCurrentValue(element.pattern)
                 i += 1
 
@@ -255,7 +260,14 @@ class Heat_Exchanger_Definition(QWidget):
 
         self.HE_update_signal.emit(heat_exchanger)
 
+        self.loading = False
+
     def update_heat_exchanger(self):
+        
+        # if update detected while loading, ignore
+        # this is not a user initiated update
+        if self.loading:
+            return
 
         baffles_per_stage = []
         cold_tube_pattern = []
@@ -296,8 +308,8 @@ class Heat_Exchanger_Definition(QWidget):
 
 
 class Heat_Exchanger_Diagram(QWidget):
-    def __init__(self, width, height):
-        super().__init__()
+    def __init__(self, parent, width, height):
+        super().__init__(parent)
         self.setWindowTitle('Heat Exchanger Diagram')
 
         self.width = width
@@ -505,10 +517,9 @@ class Heat_Exchanger_Diagram(QWidget):
         for i,n in enumerate(num_baffles):
             y_1 = 100 + i * cold_channel_width
             y_2 = 100 + (i+1) * cold_channel_width
-            for j in range(n):
+            for j in range(int(n)):
                 x_coord = (150 + 500 * (j + 1) / (n + 1)) * scale_x
                 painter.drawLine(int(x_coord), int(y_1 * scale_y), int(x_coord), int(y_2 * scale_y))
-
 
 
         if (self.heat_exchanger.hot_flow_sections - self.heat_exchanger.cold_flow_sections) % 2 == 0:

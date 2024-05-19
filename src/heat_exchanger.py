@@ -188,6 +188,8 @@ def pitch_from_tubes(tubes, pattern):
 
     if pitch < D_outer_tube:
         logging.error("Pitch is less than the tube diameter")
+        raise ValueError("Pitch is less than the tube diameter")
+    
     elif pitch < D_outer_tube + pitch_offset:
         logging.warning("Tubes are closer than minimum set distance")
 
@@ -541,7 +543,11 @@ class Heat_Exchanger():
 
         # THERMAL ANALYSIS
 
-        self.area_times_H = self.calc_area_times_H(self.mdot)
+        try:
+            self.area_times_H = self.calc_area_times_H(self.mdot)
+        except Exception as e:
+            logging.error(f"Failed to calculate area times H: {e}")
+            return False
 
         if (method == 'LMTD'):
             
@@ -664,14 +670,15 @@ class Heat_Exchanger():
         i = 0
         for element in self.hot_path.elements:
             if isinstance(element, Heat_Transfer_Element):
-                element.tubes = tubes[i]
-                element.baffles = baffles[i % cold_stages]
+                element.tubes = np.rint(tubes[i])
+                element.baffles = np.rint(baffles[i % cold_stages])
                 i += 1
-
-        for i, element in enumerate(self.cold_path.elements):
+        
+        i = 0
+        for element in self.cold_path.elements:
             if isinstance(element, Heat_Transfer_Element):
-                element.tubes = int(tubes[i % hot_stages] * hot_stages / cold_stages)
-                element.baffles = baffles[i]
+                element.tubes = np.rint(tubes[i % hot_stages] * hot_stages / cold_stages)
+                element.baffles = np.rint(baffles[i])
                 i += 1
 
     
@@ -694,26 +701,34 @@ def build_heat_exchanger(tubes_per_stage, baffles_per_stage, length, flow_path_e
     cold_stages = len(baffles_per_stage)
 
     if isinstance(hot_tube_pattern, Pattern):
-        hot_tube_pattern = [hot_tube_pattern] * hot_stages
+        hot_tube_patterns = [hot_tube_pattern] * hot_stages
+    else:
+        hot_tube_patterns = hot_tube_pattern
 
     if cold_tube_pattern is None:
-        cold_tube_pattern = hot_tube_pattern
+        cold_tube_patterns = [hot_tube_pattern] * cold_stages
+    elif isinstance(cold_tube_pattern, Pattern):
+        cold_tube_patterns = [cold_tube_pattern] * cold_stages
+    else:
+        cold_tube_patterns = cold_tube_pattern
     
     Hot_path = Fluid_Path(rho_w, mu, cp, k_w)
     Hot_path.add_element(Entry_Constriction())
     Hot_path.add_element(
-        Heat_Transfer_Element(tubes_per_stage[0], baffles_per_stage[0], 
-                            Direction.COUNTERFLOW,
-                            hot_tube_pattern[0])
+        Heat_Transfer_Element(np.rint(tubes_per_stage[0]), 
+                              np.rint(baffles_per_stage[0]), 
+                            flow_direction=Direction.COUNTERFLOW,
+                            tube_pattern = hot_tube_patterns[0])
     )
     Hot_path.add_element(Exit_Expansion())
     for i in range(1, hot_stages):
         Hot_path.add_element(U_Bend())
         Hot_path.add_element(Entry_Constriction())
         Hot_path.add_element(
-            Heat_Transfer_Element(tubes_per_stage[i], baffles_per_stage[i % cold_stages], 
-                                Direction.COUNTERFLOW,
-                                hot_tube_pattern[i])
+            Heat_Transfer_Element(np.rint(tubes_per_stage[i]), 
+                                  np.rint(baffles_per_stage[i % cold_stages]), 
+                                flow_direction=Direction.COUNTERFLOW,
+                                tube_pattern = hot_tube_patterns[i])
         )
         Hot_path.add_element(Exit_Expansion())
 
@@ -721,19 +736,19 @@ def build_heat_exchanger(tubes_per_stage, baffles_per_stage, length, flow_path_e
 
     Cold_path.add_element(
         Heat_Transfer_Element(
-                            int(tubes_per_stage[0] * hot_stages / cold_stages), 
-                            baffles_per_stage[0], 
+                            np.rint(tubes_per_stage[0] * hot_stages / cold_stages), 
+                            np.rint(baffles_per_stage[0]), 
                             flow_direction=Direction.COUNTERFLOW,
-                            tube_pattern = cold_tube_pattern[0])
+                            tube_pattern = cold_tube_patterns[0])
     )
     for i in range(1, cold_stages):
         Cold_path.add_element(U_Bend())
         Cold_path.add_element(
             Heat_Transfer_Element(
-                                int(tubes_per_stage[i % hot_stages] * hot_stages / cold_stages), 
-                                baffles_per_stage[i], 
+                                np.rint(tubes_per_stage[i % hot_stages] * hot_stages / cold_stages), 
+                                np.rint(baffles_per_stage[i]), 
                                 flow_direction=Direction.COFLOW,
-                                tube_pattern = cold_tube_pattern[i])
+                                tube_pattern = cold_tube_patterns[i])
         )
 
     HeatExchanger = Heat_Exchanger(Cold_path, Hot_path, 
