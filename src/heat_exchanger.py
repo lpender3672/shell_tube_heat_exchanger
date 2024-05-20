@@ -187,8 +187,11 @@ def pitch_from_tubes(tubes_per_section, N, pattern):
     pitch = k * D_shell / np.sqrt(N_tubes)
     '''
     if pattern == Pattern.SQUARE:
+<<<<<<< HEAD
         a =  D_shell*(np.pi / (4*N))**(1/2)                       ## N is the number of shell or tube passes
         pitch = a * (tubes_per_section)**(-1/2)
+=======
+>>>>>>> 45dfb145ffcce751d9ea568831bf7c9fb097e923
     
     elif pattern == Pattern.TRIANGLE:
         a = D_shell*(np.pi/(N*3**(1/2)))**(1/2)

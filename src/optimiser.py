@@ -6,7 +6,7 @@ from PyQt6 import QtWidgets
 import copy
 import numpy as np
 
-from scipy.optimize import NonlinearConstraint, BFGS
+from scipy.optimize import NonlinearConstraint, BFGS, OptimizeResult
 from scipy.optimize import minimize as scipy_minimize
 from scipy.optimize import shgo as scipy_shgo
 
@@ -26,12 +26,6 @@ class QTextEditLogger(logging.Handler):
     def emit(self, record):
         msg = self.format(record)
         self.widget.appendPlainText(msg)
-
-
-class Optimise_Result():
-    def __init__(self, heat_exchanger, success):
-        self.heat_exchanger = heat_exchanger
-        self.success = success
 
 
 class Optimise_Widget(QWidget):
@@ -136,16 +130,13 @@ class Optimise_Widget(QWidget):
         if result.success:
             logging.info("Optimisation Successful")
 
-            L = result.heat_exchanger.L_hot_tube
-
-            tubes = result.heat_exchanger.hot_path.elements[1].tubes
-            baffles = result.heat_exchanger.cold_path.elements[0].baffles
-
             mass = result.heat_exchanger.calc_mass()
+            l = result.x[0]
+            baffles = result.x[1:self.heat_exchanger.cold_flow_sections + 1]
+            tubes = result.x[self.heat_exchanger.cold_flow_sections + 1:]
 
-
-            logging.info(f"L_tube = {L}, tubes per stage = {tubes}, baffles per stage = {baffles}, mass = {mass}")
-            logging.info(f"mdot_cold = {result.heat_exchanger.mdot[0]}, mdot_hot = {result.heat_exchanger.mdot[1]}")
+            logging.info(f"\nTubes = {tubes}, \nBaffles = {baffles}, \nLength = {l}, \nMass = {mass}")
+            logging.info(f"\n mdot_cold = {result.heat_exchanger.mdot[0]}\n mdot_hot = {result.heat_exchanger.mdot[1]}")
             logging.info(f"Qdot = {result.heat_exchanger.Qdot}, effectiveness = {result.heat_exchanger.effectiveness}")
 
             self.optimal_found.emit(result.heat_exchanger)
@@ -160,7 +151,7 @@ class Optimise_Widget(QWidget):
 
 class Worker_Signals(QObject):
     iteration_update = pyqtSignal(np.ndarray)
-    finished = pyqtSignal(Optimise_Result)
+    finished = pyqtSignal(OptimizeResult)
 
 class Scipy_Optimise_Worker(QRunnable):
 
@@ -253,7 +244,7 @@ class Scipy_Optimise_Worker(QRunnable):
         x0.extend([rand_tubes for _ in range(self.heat_exchanger.hot_flow_sections)])
 
         try:
-            res = scipy_minimize(
+            result = scipy_minimize(
                             self.objective_function, 
                             x0, 
                             method='trust-constr',
@@ -266,10 +257,9 @@ class Scipy_Optimise_Worker(QRunnable):
             print(e)
         
         else:
-            result = Optimise_Result(
-                self.heat_exchanger,
-                res.success
-            )
+            
+            self.objective_function(result.x)
+            result.heat_exchanger = self.heat_exchanger
 
             self.signal.finished.emit(result)
 
@@ -308,13 +298,14 @@ class Scipy_Global_Optimise_Worker(Scipy_Optimise_Worker):
             print(e)
         
         else:
-            print(result)
+            self.objective_function(result.x)
+            result.heat_exchanger = self.heat_exchanger
 
             self.signal.finished.emit(
-                Optimise_Result(self.heat_exchanger, result.success)
+                result
                 )        
 
-
+"""
 class Brute_Force_Worker(QRunnable):
     def __init__(self, heat_exchanger, id = 0):
         super().__init__()
@@ -406,6 +397,6 @@ class Brute_Force_Worker(QRunnable):
         self.signal.finished.emit(
             Optimise_Result(result, True)
             )
-
+"""
             
         
