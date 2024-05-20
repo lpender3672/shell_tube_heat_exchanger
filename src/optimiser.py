@@ -132,8 +132,8 @@ class Optimise_Widget(QWidget):
 
             mass = result.heat_exchanger.calc_mass()
             l = result.x[0]
-            baffles = result.x[1:self.heat_exchanger.cold_flow_sections + 1]
-            tubes = result.x[self.heat_exchanger.cold_flow_sections + 1:]
+            baffles = np.rint(result.x[1:result.heat_exchanger.cold_flow_sections + 1])
+            tubes = np.rint(result.x[result.heat_exchanger.cold_flow_sections + 1:])
 
             logging.info(f"\nTubes = {tubes}, \nBaffles = {baffles}, \nLength = {l}, \nMass = {mass}")
             logging.info(f"\n mdot_cold = {result.heat_exchanger.mdot[0]}\n mdot_hot = {result.heat_exchanger.mdot[1]}")
