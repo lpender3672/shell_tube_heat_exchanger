@@ -28,6 +28,55 @@ max_thermal_iterations = 100
 hydraulic_error_tolerance = 1e-8
 thermal_error_tolerance = 1e-8
 
+
+cold_side_compressor_characteristic_2022 = np.array([[
+    0.5833,
+    0.5083,
+    0.4750,
+    0.4250,
+    0.3792,
+    0.3417,
+    0.2958,
+    0.2583,
+    0.2125,
+    0.1708
+    ],[
+    0.1113,
+    0.2157,
+    0.2538,
+    0.3168,
+    0.3613,
+    0.4031,
+    0.4511,
+    0.4846,
+    0.5181,
+    0.5573
+]])
+
+hot_side_compressor_characteristic_2022 = np.array([[
+    0.4583,
+    0.4236,
+    0.4010,
+    0.3611,
+    0.3125,
+    0.2639,
+    0.2222,
+    0.1597,
+    0.1181,
+    0.0694
+],[
+    0.1333,
+    0.1756,
+    0.2024,
+    0.2577,
+    0.3171,
+    0.3633,
+    0.4233,
+    0.4784,
+    0.5330,
+    0.5715
+]])
+
 cold_side_compressor_characteristic_2023 = np.array([
     [
     0.7083,   
@@ -174,8 +223,14 @@ num_threads = 1
 
 if __name__ == "__main__":
 
-    plt.plot(cold_side_compressor_characteristic_2024[0], cold_side_compressor_characteristic_2024[1], label = "Cold side")
-    plt.plot(hot_side_compressor_characteristic_2024[0], hot_side_compressor_characteristic_2024[1], label = "Hot side")
+    plt.plot(cold_side_compressor_characteristic_2024[0], cold_side_compressor_characteristic_2024[1], label = "2024 Cold side")
+    plt.plot(hot_side_compressor_characteristic_2024[0], hot_side_compressor_characteristic_2024[1], label = "2024 Hot side")
+
+    plt.plot(cold_side_compressor_characteristic_2023[0], cold_side_compressor_characteristic_2023[1], label = "2023 Cold side")
+    plt.plot(hot_side_compressor_characteristic_2023[0], hot_side_compressor_characteristic_2023[1], label = "2023 Hot side")
+
+    plt.plot(cold_side_compressor_characteristic_2022[0], cold_side_compressor_characteristic_2022[1], label = "2022 Cold side")
+    plt.plot(hot_side_compressor_characteristic_2022[0], hot_side_compressor_characteristic_2022[1], label = "2022 Hot side")
 
     plt.xlabel("Mass flow rate (kg/s)")
     plt.ylabel("Pressure drop (Bar)")

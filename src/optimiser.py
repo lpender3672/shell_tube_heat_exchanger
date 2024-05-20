@@ -288,7 +288,7 @@ class Scipy_Global_Optimise_Worker(Scipy_Optimise_Worker):
                                 constraints=self.constraints,
                                 n = 100 * complexity,
                                 options = {
-                                    'maxtime' : 60,
+                                    'maxtime' : 5,
                                     'f_min' : 0.5,
                                     'f_tol' : 0.001,
                                 },
