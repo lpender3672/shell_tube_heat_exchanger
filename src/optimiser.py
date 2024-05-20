@@ -132,8 +132,8 @@ class Optimise_Widget(QWidget):
 
             mass = result.heat_exchanger.calc_mass()
             l = result.x[0]
-            baffles = result.x[1:self.heat_exchanger.cold_flow_sections + 1]
-            tubes = result.x[self.heat_exchanger.cold_flow_sections + 1:]
+            baffles = result.x[1:result.heat_exchanger.cold_flow_sections + 1]
+            tubes = result.x[result.heat_exchanger.cold_flow_sections + 1:]
 
             logging.info(f"\nTubes = {tubes}, \nBaffles = {baffles}, \nLength = {l}, \nMass = {mass}")
             logging.info(f"\n mdot_cold = {result.heat_exchanger.mdot[0]}\n mdot_hot = {result.heat_exchanger.mdot[1]}")
@@ -288,7 +288,7 @@ class Scipy_Global_Optimise_Worker(Scipy_Optimise_Worker):
                                 constraints=self.constraints,
                                 n = 100 * complexity,
                                 options = {
-                                    'maxtime' : 60,
+                                    'maxtime' : 5,
                                     'f_min' : 0.5,
                                     'f_tol' : 0.001,
                                 },

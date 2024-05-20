@@ -7,6 +7,7 @@ import copy
 from scipy.optimize import fsolve
 import scipy
 import scipy.optimize
+import scipy.interpolate
 
 import logging
 
@@ -15,19 +16,45 @@ from constants import *
 from fluid_path import Fluid_Path, Entry_Constriction, Exit_Expansion, U_Bend, Heat_Transfer_Element
 
 
-def cold_mass_flow_from_dp(cold_dp):
+def cold_mass_flow_from_dp(cold_dp, year = 2024): # cold_dp in Pa
 
+    if year == 2024:
+        cold_side_compressor_characteristic = cold_side_compressor_characteristic_2024
+    elif year == 2023:
+        cold_side_compressor_characteristic = cold_side_compressor_characteristic_2023
+    elif year == 2022:
+        cold_side_compressor_characteristic = cold_side_compressor_characteristic_2022
+
+    """ 
     return np.interp(cold_dp * 1e-5,
-                     cold_side_compressor_characteristic_2024[1],
-                     cold_side_compressor_characteristic_2024[0]) * rho_w / 1000
+                     cold_side_compressor_characteristic[1],
+                     cold_side_compressor_characteristic[0]) * rho_w / 1000
+    """
+    f =  scipy.interpolate.interp1d(cold_side_compressor_characteristic[1], 
+                                      cold_side_compressor_characteristic[0], 
+                                      kind = 'cubic', fill_value='extrapolate')
+    return f(cold_dp * 1e-5) * rho_w / 1000
 
 
-def hot_mass_flow_from_dp(hot_dp):
+def hot_mass_flow_from_dp(hot_dp, year = 2024): # hot_dp in Pa
 
+    if year == 2024:
+        hot_side_compressor_characteristic = hot_side_compressor_characteristic_2024
+    elif year == 2023:
+        hot_side_compressor_characteristic = hot_side_compressor_characteristic_2023
+    elif year == 2022:
+        hot_side_compressor_characteristic = hot_side_compressor_characteristic_2022
+
+    """
     return np.interp(hot_dp * 1e-5,  # bar
-                     hot_side_compressor_characteristic_2024[1],
-                     hot_side_compressor_characteristic_2024[0]) * rho_w / 1000
-
+                     hot_side_compressor_characteristic[1],
+                     hot_side_compressor_characteristic[0]) * rho_w / 1000
+    """
+    f = scipy.interpolate.interp1d(hot_side_compressor_characteristic[1],
+                                    hot_side_compressor_characteristic[0],
+                                    kind = 'cubic', fill_value='extrapolate')
+    return f(hot_dp * 1e-5) * rho_w / 1000
+    
 
 def dp_from_cold_mass_flow(mdot_cold):
         # check if in the range for the compressor characteristics
@@ -211,6 +238,8 @@ def pitch_from_tubes(N_tubes, pattern):
 class Heat_Exchanger():
     def __init__(self, cold_fluid_path, hot_fluid_path, flow_path_entries_side):
         super().__init__()
+
+        self.characteristic_year = 2024
 
         self.cold_path = cold_fluid_path
         self.hot_path = hot_fluid_path
@@ -407,10 +436,13 @@ class Heat_Exchanger():
 
         # check if mdot is in the range for the compressor characteristics
         
-        new_mdot_cold = cold_mass_flow_from_dp(dp_cold)
-        new_mdot_hot = hot_mass_flow_from_dp(dp_hot)
+        #new_mdot_cold = cold_mass_flow_from_dp(dp_cold, self.characteristic_year)
+        #new_mdot_hot = hot_mass_flow_from_dp(dp_hot, self.characteristic_year)
+        #error = [new_mdot_cold - mdot_cold, new_mdot_hot - mdot_hot]
 
-        error = [new_mdot_cold - mdot_cold, new_mdot_hot - mdot_hot]
+        dp_cold_calc = dp_from_cold_mass_flow(mdot_cold)
+        dp_hot_calc = dp_from_hot_mass_flow(mdot_hot)
+        error = [dp_cold_calc - dp_cold, dp_hot_calc - dp_hot]
 
         return error
     
