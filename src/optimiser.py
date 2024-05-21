@@ -118,8 +118,8 @@ class Optimise_Widget(QWidget):
             worker.build_constraints()
             
             self.workers.append(worker)
-            worker.run()
-            #self.thread_pool.start(worker)
+            #worker.run()
+            self.thread_pool.start(worker)
 
         
         logging.info("Optimisation started")
@@ -161,8 +161,9 @@ class Scipy_Optimise_Worker(QRunnable):
 
         self.heat_exchanger = heat_exchanger
         self.cancelled = False
-        self.iteration_count = 0
-        self.emit_interval = 10
+        self.iteration_count = 1
+        self.emit_interval = 100
+        self.batch = np.zeros((0, 2))
 
         self.signal = Worker_Signals()
 
