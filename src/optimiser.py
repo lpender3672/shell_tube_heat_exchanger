@@ -312,10 +312,10 @@ class Scipy_Global_Optimise_Worker(Scipy_Optimise_Worker):
             result = scipy_shgo(self.objective_function, 
                                 bounds = bounds,
                                 constraints=self.constraints,
-                                n = 1000,
+                                n = 10,
                                 options = {
-                                    'maxtime' : 60,
-                                    'f_min' : 0.5,
+                                    'maxtime' : 30,
+                                    'f_min' : 0.1,
                                     'f_tol' : 0.001,
                                     'constraints_tol': 1e-8,
                                 },
@@ -325,6 +325,8 @@ class Scipy_Global_Optimise_Worker(Scipy_Optimise_Worker):
             print(e)
         
         else:
+            print(result)
+
             self.objective_function(result.x)
             result.heat_exchanger = self.heat_exchanger
 

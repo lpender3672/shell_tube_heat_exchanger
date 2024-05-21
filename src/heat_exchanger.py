@@ -56,18 +56,30 @@ def hot_mass_flow_from_dp(hot_dp, year = 2024): # hot_dp in Pa
     return f(hot_dp * 1e-5) * rho_w / 1000
     
 
-def dp_from_cold_mass_flow(mdot_cold):
+def dp_from_cold_mass_flow(mdot_cold, year = 2024):
+        if year == 2024:
+            cold_side_compressor_characteristic = cold_side_compressor_characteristic_2024
+        elif year == 2023:
+            cold_side_compressor_characteristic = cold_side_compressor_characteristic_2023
+        elif year == 2022:
+            cold_side_compressor_characteristic = cold_side_compressor_characteristic_2022
         # check if in the range for the compressor characteristics
         
         return np.interp(mdot_cold * 1000 / rho_w,
-                        np.fliplr(cold_side_compressor_characteristic_2024)[0],
-                        np.fliplr(cold_side_compressor_characteristic_2024)[1]) * 1e5  # Pa
+                        np.fliplr(cold_side_compressor_characteristic)[0],
+                        np.fliplr(cold_side_compressor_characteristic)[1]) * 1e5  # Pa
 
-def dp_from_hot_mass_flow(mdot_hot):
+def dp_from_hot_mass_flow(mdot_hot, year = 2024):
+        if year == 2024:
+            hot_side_compressor_characteristic = hot_side_compressor_characteristic_2024
+        elif year == 2023:
+            hot_side_compressor_characteristic = hot_side_compressor_characteristic_2023
+        elif year == 2022:
+            hot_side_compressor_characteristic = hot_side_compressor_characteristic_2022
         
         return np.interp(mdot_hot * 1000 / rho_w,
-                            np.fliplr(hot_side_compressor_characteristic_2024)[0],
-                            np.fliplr(hot_side_compressor_characteristic_2024)[1]) * 1e5  # Pa
+                            np.fliplr(hot_side_compressor_characteristic)[0],
+                            np.fliplr(hot_side_compressor_characteristic)[1]) * 1e5  # Pa
 
 def logmeanT(T1in, T1out, T2in, T2out):
     dt1 = (T2in - T1out)
@@ -232,6 +244,7 @@ def pitch_from_tubes(tubes_per_section, N, pattern):
         logging.warning("Tubes are closer than minimum set distance")
 
     #pitch = 1.25*D_outer_tube
+    #print(pitch)
 
     return pitch
 
@@ -427,6 +440,10 @@ class Heat_Exchanger():
         v_cold_nozzle = mdot_cold / (rho_w * A_nozzle)
 
         DP_cold += rho_w * v_cold_nozzle**2
+        
+        # Fudge factors based on experimental data in analysis.ipynb
+        DP_cold = 1.45443318e+00 * DP_cold + 1.22838965e+04
+        DP_hot = 4.37738030e-01 * DP_hot + 7.86899623e+03
 
         return DP_cold, DP_hot
 
@@ -437,13 +454,13 @@ class Heat_Exchanger():
 
         # check if mdot is in the range for the compressor characteristics
         
-        #new_mdot_cold = cold_mass_flow_from_dp(dp_cold, self.characteristic_year)
-        #new_mdot_hot = hot_mass_flow_from_dp(dp_hot, self.characteristic_year)
-        #error = [new_mdot_cold - mdot_cold, new_mdot_hot - mdot_hot]
+        new_mdot_cold = cold_mass_flow_from_dp(dp_cold, self.characteristic_year)
+        new_mdot_hot = hot_mass_flow_from_dp(dp_hot, self.characteristic_year)
+        error = [new_mdot_cold - mdot_cold, new_mdot_hot - mdot_hot]
 
-        dp_cold_calc = dp_from_cold_mass_flow(mdot_cold)
-        dp_hot_calc = dp_from_hot_mass_flow(mdot_hot)
-        error = [dp_cold_calc - dp_cold, dp_hot_calc - dp_hot]
+        #dp_cold_calc = dp_from_cold_mass_flow(mdot_cold, self.characteristic_year)
+        #dp_hot_calc = dp_from_hot_mass_flow(mdot_hot, self.characteristic_year)
+        #error = [dp_cold_calc - dp_cold, dp_hot_calc - dp_hot]
 
         return error
     
@@ -480,7 +497,6 @@ class Heat_Exchanger():
             else:
                 logging.error("Error: Unknown pattern")
             
-        
 
             B_spacing = self.L_hot_tube / (element.baffles + 1)
             A_shell_effective = (pitch - D_outer_tube) * \
