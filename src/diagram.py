@@ -241,7 +241,7 @@ class Heat_Exchanger_Definition(QWidget):
                 self.stage_table.cellWidget(i, 0).setValue(
                     int(element.baffles))
                 self.stage_table.cellWidget(i, 1).setCurrentValue(
-                    element.pattern)
+                    element.pattern[0])
                 i += 1
 
         for i in range(1, heat_exchanger.hot_flow_sections):
