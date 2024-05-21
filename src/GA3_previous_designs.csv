@@ -1,4 +1,4 @@
-year,group,Tube Length,Tubes,Baffles,Pattern,Rotameter in1,Rotameter out1, DP_meas1, Tcold_in, Tcold_out,Rotameter in2,Rotameter out2,  DP_meas2, Thot_in, Thot_out Flowrate,Flowrate1, DP_HX1,Qdot1,Flowrate2,   DP_HX2,Qdot2,Qave,Effectiveness,Qcorr,Mass,Total Length
+year,group,Tube Length,Tubes,Baffles,Pattern,Rotameter in1,Rotameter out1, DP_meas1, Tcold_in, Tcold_out,Rotameter in2,Rotameter out2,  DP_meas2, Thot_in, Thot_out,Flowrate1, DP_HX1,Qdot1,Flowrate2,   DP_HX2,Qdot2,Qave,Effectiveness,Qcorr,Mass,Total Length
 2022,Group-A,0.236,14,12,TRIANGLE,24,25,0.252,19.4,25.3,0.69,0.7,0.074,55.4,50,0.408,0.305,9.97,0.483,0.122,10.78,10.38,0.171,11.53,1.081,0.35
 2022,Group-B,0.219,16,6,TRIANGLE,32,33,0.116,20.8,24.9,0.69,0.71,0.07,53.8,48.8,0.542,0.16,9.19,0.486,0.118,10.06,9.62,0.145,11.66,1.067,0.32
 2022,Group-C,0.162,"15,5",4,TRIANGLE,32,33,0.135,22,26.3,0.6,0.65,0.14,51.5,46.1,0.542,0.179,9.64,0.434,0.19,9.7,9.67,0.182,13.11,1.05,0.287
