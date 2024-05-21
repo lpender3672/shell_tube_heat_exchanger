@@ -200,9 +200,28 @@ class Scipy_Optimise_Worker(QRunnable):
         
         #constraints.append({'type':'eq', 'fun': integer_constraints})
 
-        # length constraint
-        length_constraint = NonlinearConstraint(lambda x: x[0], 0.15, 0.35 - 2 * end_cap_width, jac='2-point')
-        #constraints.append(length_constraint)
+        # Total tube length constraint
+        def total_tube_length(x):
+            l = x[0]
+            tubes = np.rint(x[self.heat_exchanger.cold_flow_sections + 1:])
+            total_length = np.sum(tubes) * l
+            return  max_total_tube_length - total_length
+        
+        length_constraint = {'type':'ineq', 'fun': total_tube_length}
+        constraints.append(length_constraint)
+
+
+        # This constraint ensures that the number of tubes do not decrease as the flow path progresses
+        # This is to shrink the search space and make the optimisation faster
+        # This is thought to not exclude the optimal solution
+        # As temperature difference decreases the area of heat transfer should increase to maintain local heat transfer
+        # Increasing the area of 
+        def ascending_tubes(x):
+            tubes = x[self.heat_exchanger.cold_flow_sections + 1:]
+            return np.diff(tubes) + 1e-6
+
+        ascending_tubes_constraint = {'type':'ineq', 'fun': ascending_tubes}
+        constraints.append(ascending_tubes_constraint)
 
         self.constraints = constraints
 
@@ -257,9 +276,9 @@ class Scipy_Optimise_Worker(QRunnable):
             print(e)
         
         else:
-            
-            self.objective_function(result.x)
-            result.heat_exchanger = self.heat_exchanger
+            if result.success:            
+                self.objective_function(result.x)
+                result.heat_exchanger = self.heat_exchanger
 
             self.signal.finished.emit(result)
 
@@ -272,7 +291,14 @@ class Scipy_Global_Optimise_Worker(Scipy_Optimise_Worker):
         max_tubes = 24 // self.heat_exchanger.hot_flow_sections
         max_baffles = 30 // self.heat_exchanger.cold_flow_sections
 
-        length_bounds = (0, 0.35 - 2 * end_cap_width)
+        lmax = max_HE_length - end_cap_width_nozzle
+        if self.heat_exchanger.hot_flow_sections % 2 == 0:
+             # for hot flow nozzles on same side the opposite end cap width is smaller, allowing for larger max length
+            lmax -= end_cap_width
+        else:
+            lmax -= end_cap_width_nozzle
+
+        length_bounds = (0, lmax)
         tube_bounds = (1, max_tubes)
         baffle_bounds = (1, max_baffles)
 
@@ -286,11 +312,12 @@ class Scipy_Global_Optimise_Worker(Scipy_Optimise_Worker):
             result = scipy_shgo(self.objective_function, 
                                 bounds = bounds,
                                 constraints=self.constraints,
-                                n = 100 * complexity,
+                                n = 10 * complexity ** 2,
                                 options = {
-                                    'maxtime' : 5,
+                                    'maxtime' : 30,
                                     'f_min' : 0.5,
                                     'f_tol' : 0.001,
+                                    'constraints_tol': 1e-8,
                                 },
                                 sampling_method='sobol',
                                 )

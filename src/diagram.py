@@ -343,25 +343,28 @@ class Heat_Exchanger_Diagram(QWidget):
         self.Qdot_box = QLineEdit()
         self.effectiveness_box = QLineEdit()
         self.mass_box = QLineEdit()
+        self.total_tube_length_box = QLineEdit()
 
         self.mdot_hot_box.setReadOnly(True)
         self.mdot_cold_box.setReadOnly(True)
         self.Qdot_box.setReadOnly(True)
         self.effectiveness_box.setReadOnly(True)
         self.mass_box.setReadOnly(True)
+        self.total_tube_length_box.setReadOnly(True)
 
         self.mdot_hot_box.setPlaceholderText("mdot_hot")
         self.mdot_cold_box.setPlaceholderText("mdot_cold")
         self.Qdot_box.setPlaceholderText("Qdot")
         self.effectiveness_box.setPlaceholderText("Effectiveness")
         self.mass_box.setPlaceholderText("mass")
+        self.total_tube_length_box.setPlaceholderText("Total Tube Length")
 
         self.mdot_hot_label = QLabel("Hot mass flow rate:")
         self.mdot_cold_label = QLabel("Cold mass flow rate:")
         self.Qdot_label = QLabel("Heat transfer rate:")
         self.effectiveness_label = QLabel("Effectiveness:")
         self.mass_label = QLabel("HE Mass (kg)")
-
+        self.total_tube_length_label = QLabel("Total Tube Length (m)")
 
         # Set up the layout
         layout = QGridLayout()
@@ -388,7 +391,9 @@ class Heat_Exchanger_Diagram(QWidget):
             self.effectiveness_label,
             self.effectiveness_box,
             self.mass_label,
-            self.mass_box
+            self.mass_box,
+            self.total_tube_length_label,
+            self.total_tube_length_box
         ]
         
     def set_heat_exchanger(self, heat_exchanger):
@@ -403,7 +408,6 @@ class Heat_Exchanger_Diagram(QWidget):
         self.update()
     
     def recompute(self):
-
 
         try:
             T1_text = self.cold_inlet_box.text()
@@ -439,6 +443,8 @@ class Heat_Exchanger_Diagram(QWidget):
         effectiveness = self.heat_exchanger.effectiveness
 
         mass = self.heat_exchanger.calc_mass()
+        tube_length = self.heat_exchanger.total_tubes * self.heat_exchanger.L_hot_tube
+        print(self.heat_exchanger.total_tubes, tube_length)
 
         dpoints = 4
 
@@ -464,6 +470,9 @@ class Heat_Exchanger_Diagram(QWidget):
         
         self.mass_box.setText(
             str(np.round(mass,dpoints))
+            )
+        self.total_tube_length_box.setText(
+            str(np.round(tube_length,dpoints))
             )
         
     def paintEvent(self, event):

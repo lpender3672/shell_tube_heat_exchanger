@@ -187,6 +187,7 @@ hot_side_compressor_characteristic_2024 = np.array([[
 ### Fixed geometric requirements that are not optimised for.
 
 max_HE_length = 0.35 # m
+max_total_tube_length = 3.5
 D_shell = 0.064 # m
 D_inlet_nozzle = 0.02 # m
 D_inner_tube = 0.006 # m
@@ -194,6 +195,7 @@ D_outer_tube = 0.008 # m
 
 end_cap_width_nozzle = 0.040
 end_cap_width = 0.020
+baffle_width = 0.0015
 
 a_triangle = 0.2
 a_square = 0.34

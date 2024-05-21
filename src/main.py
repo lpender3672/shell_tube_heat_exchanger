@@ -29,7 +29,7 @@ class MainWindow(QMainWindow):
         if self.icon: # check if file found
             self.setWindowIcon(self.icon)
 
-        self.setGeometry(100, 100, 1600, 800)
+        self.setGeometry(100, 100, 1600, 900)
 
         layout = QtWidgets.QGridLayout()
 

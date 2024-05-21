@@ -4,9 +4,13 @@ from PyQt6.QtCore import Qt, QPoint, pyqtSignal, QTimer
 from PyQt6.QtWidgets import QLineEdit, QGridLayout, QVBoxLayout, QLabel, QPushButton, QSpinBox, QListWidget
 
 import matplotlib
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import (
+    FigureCanvasQTAgg, NavigationToolbar2QT
+)
 import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
+
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 matplotlib.use('QtAgg')
 
@@ -20,7 +24,8 @@ class Convergence_Graph(QWidget):
         super().__init__()
         
         self.figure = Figure()
-        self.canvas = FigureCanvas(self.figure)
+        self.canvas = FigureCanvasQTAgg(self.figure)
+        self.toolbar = NavigationToolbar2QT(self.canvas, self, coordinates=True)
         self.ax = self.figure.add_subplot(111)
 
         self.draw_timer = QTimer()
@@ -31,6 +36,7 @@ class Convergence_Graph(QWidget):
         
         layout = QVBoxLayout()
         layout.addWidget(self.canvas)
+        layout.addWidget(self.toolbar)
         self.setLayout(layout)
 
         self.draw_timer.start(1000)
@@ -73,17 +79,20 @@ class Convergence_Graph(QWidget):
         
         self.ax.clear()
         self.ax.set_xlabel("Iteration")
-        self.ax.set_ylabel("Qdot (W)")
+        self.ax.set_ylabel("Qdot (kW)")
+        self.ax.grid()
 
         n = self.output_data.shape[0]
         iterations = np.arange(n)
         lengths = self.input_data[:, 0]
         lengths = 50 * (lengths / np.max(lengths)) ** 2
+        Qdot = self.output_data[:, 0] / 1e3 # kW
 
-        self.ax.scatter(iterations, self.output_data[:, 0], s = lengths, c=self.output_data[:,0], cmap='plasma')
+        self.ax.scatter(iterations, Qdot, s = lengths, c=self.output_data[:,0], cmap='plasma')
         self.ax.autoscale()
-        self.ax.grid()
         self.canvas.draw_idle()
+
+        self.figure.tight_layout()
     
     def clear(self):
 
@@ -97,14 +106,21 @@ class Convergence_Graph(QWidget):
         self.ax.grid()
         self.canvas.draw_idle()
 
+        #self.figure.tight_layout()
+
 class State_Space_Graph(QWidget):
     def __init__(self):
         super().__init__()
 
         self.figure = Figure()
-        self.canvas = FigureCanvas(self.figure)
+        self.canvas = FigureCanvasQTAgg(self.figure)
+        self.toolbar = NavigationToolbar2QT(self.canvas, self, coordinates=True)
         # add colourbar to graph
         self.ax = self.figure.add_subplot(111)
+        divider = make_axes_locatable(self.ax)
+        self.cax = divider.append_axes('right', size='5%', pad=0.15)
+        self.cax.set_axis_off()
+        self.figure.tight_layout()
 
         self.draw_timer = QTimer()
         self.draw_timer.timeout.connect(self.graph_update)
@@ -114,6 +130,7 @@ class State_Space_Graph(QWidget):
 
         layout = QVBoxLayout()
         layout.addWidget(self.canvas)
+        layout.addWidget(self.toolbar)
         
         self.setLayout(layout)
 
@@ -164,17 +181,24 @@ class State_Space_Graph(QWidget):
         self.ax.clear()
         self.ax.set_xlabel("Baffles per stage 1")
         self.ax.set_ylabel("Tubes per stage 1")
+        self.ax.grid()
 
         pass1_baffles = np.rint(self.input_data[:, 1])
         pass1_tubes = np.rint(self.input_data[:, self.cold_flow_sections + 1])
         lengths = self.input_data[:, 0]
         lengths = 50 * (lengths / np.max(lengths)) ** 2
+        colours = np.round(self.output_data[:,0] / 1e3, 1) # kW
         
         # set colour to Qdot value
-        self.ax.scatter(pass1_baffles, pass1_tubes, s = lengths, c=self.output_data[:,0], cmap='plasma')
+        self.cax.set_axis_on()
+        scat = self.ax.scatter(pass1_baffles, pass1_tubes, s = lengths, c=colours, cmap='plasma')
+        self.figure.colorbar(scat, cax=self.cax, orientation='vertical')
+        self.cax.set_ylabel('Qdot (kW)')
+        
         self.ax.autoscale()
-        self.ax.grid()
         self.canvas.draw_idle()
+
+        self.figure.tight_layout()
     
     def clear(self):
 
@@ -189,6 +213,8 @@ class State_Space_Graph(QWidget):
         self.ax.set_xlim(0, 10)
         self.ax.grid()
         self.canvas.draw_idle()
+
+        #self.figure.tight_layout()
 
 
 class Results_Widget(QWidget):
