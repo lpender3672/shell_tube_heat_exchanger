@@ -147,13 +147,17 @@ class e_NTU():
             
         return e
     
-    def F_factor(self):                                                                         ##for the overall HX, use ntu_overall
+    def F_factor(self):      
+        
+        if (self.N_tube == 2 and self.N_shell == 2):
+            return 1
+                                                                           ##for the overall HX, use ntu_overall
         e = e_NTU.effectiveness(self)
         if (self.C_ntu >=0 and self.C_ntu < 1):
             F = 1/(self.ntu_overall * (1 - self.C_ntu)) * np.log((1-self.C_ntu * e)/(1-e))
         elif (self.C_ntu == 1):
             F = e/(self.ntu_overall * (1 - e))
-
+        
         return F
 
 

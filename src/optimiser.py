@@ -205,7 +205,9 @@ class Scipy_Optimise_Worker(QRunnable):
             l = x[0]
             tubes = np.rint(x[self.heat_exchanger.cold_flow_sections + 1:])
             total_length = np.sum(tubes) * l
-            return  max_total_tube_length - total_length
+            cuts = np.sum(tubes) - 1
+            cut_tube_lengths = max_total_tube_length - cuts * saw_blade_width
+            return  cut_tube_lengths - total_length
         
         length_constraint = {'type':'ineq', 'fun': total_tube_length}
         constraints.append(length_constraint)
@@ -312,14 +314,12 @@ class Scipy_Global_Optimise_Worker(Scipy_Optimise_Worker):
             result = scipy_shgo(self.objective_function, 
                                 bounds = bounds,
                                 constraints=self.constraints,
-                                n = 50,
+                                n = 10000,
                                 options = {
                                     'maxtime' : 60,
-                                    'f_min' : 0.1,
-                                    'f_tol' : 0.001,
                                     'constraints_tol': 1e-8,
                                 },
-                                sampling_method='sobol',
+                                sampling_method='simplicial',
                                 )
         except Exception as e:
             print(e)
