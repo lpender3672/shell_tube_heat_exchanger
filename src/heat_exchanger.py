@@ -25,14 +25,14 @@ def cold_mass_flow_from_dp(cold_dp, year = 2024): # cold_dp in Pa
     elif year == 2022:
         cold_side_compressor_characteristic = cold_side_compressor_characteristic_2022
 
-    """ 
+    
     return np.interp(cold_dp * 1e-5,
                      cold_side_compressor_characteristic[1],
                      cold_side_compressor_characteristic[0]) * rho_w / 1000
-    """
+    
     f =  scipy.interpolate.interp1d(cold_side_compressor_characteristic[1], 
                                       cold_side_compressor_characteristic[0], 
-                                      kind = 'cubic', fill_value='extrapolate')
+                                      kind = 'cubic')
     return f(cold_dp * 1e-5) * rho_w / 1000
 
 
@@ -45,14 +45,14 @@ def hot_mass_flow_from_dp(hot_dp, year = 2024): # hot_dp in Pa
     elif year == 2022:
         hot_side_compressor_characteristic = hot_side_compressor_characteristic_2022
 
-    """
+
     return np.interp(hot_dp * 1e-5,  # bar
                      hot_side_compressor_characteristic[1],
                      hot_side_compressor_characteristic[0]) * rho_w / 1000
-    """
+
     f = scipy.interpolate.interp1d(hot_side_compressor_characteristic[1],
                                     hot_side_compressor_characteristic[0],
-                                    kind = 'cubic', fill_value='extrapolate')
+                                    kind = 'cubic')
     return f(hot_dp * 1e-5) * rho_w / 1000
     
 

@@ -253,7 +253,7 @@ class Scipy_Optimise_Worker(QRunnable):
         # https://docs.scipy.org/doc/scipy/tutorial/optimize.html
         # 
         max_tubes = 24
-        max_baffles_per_section = 30
+        max_baffles_per_section = 8
         max_tubes_per_section = max_tubes // self.heat_exchanger.hot_flow_sections
         rand_tubes = np.random.randint(1, max_baffles_per_section)
         rand_baffles = np.random.randint(1, max_tubes_per_section)
@@ -289,7 +289,7 @@ class Scipy_Global_Optimise_Worker(Scipy_Optimise_Worker):
     def run(self):
 
         max_tubes = 24 // self.heat_exchanger.hot_flow_sections
-        max_baffles = 30 // self.heat_exchanger.cold_flow_sections
+        max_baffles = 8
 
         lmax = max_HE_length - end_cap_width_nozzle
         if self.heat_exchanger.hot_flow_sections % 2 == 0:
@@ -312,9 +312,9 @@ class Scipy_Global_Optimise_Worker(Scipy_Optimise_Worker):
             result = scipy_shgo(self.objective_function, 
                                 bounds = bounds,
                                 constraints=self.constraints,
-                                n = 10 * complexity ** 2,
+                                n = 1000,
                                 options = {
-                                    'maxtime' : 30,
+                                    'maxtime' : 60,
                                     'f_min' : 0.5,
                                     'f_tol' : 0.001,
                                     'constraints_tol': 1e-8,
