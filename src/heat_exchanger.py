@@ -493,7 +493,6 @@ class Heat_Exchanger():
 
             
             if element.pattern == Pattern.SQUARE:
-<<<<<<< HEAD
                 effective_d_shell = 1.27/D_outer_tube * (pitch**2 - 0.785 * D_outer_tube**2)
             elif element.pattern == Pattern.TRIANGLE:
                 effective_d_shell = 1.10/D_outer_tube * (pitch**2 - 0.917 * D_outer_tube**2) 
