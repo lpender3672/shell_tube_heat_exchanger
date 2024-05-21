@@ -231,6 +231,8 @@ def pitch_from_tubes(tubes_per_section, N, pattern):
     elif pitch < D_outer_tube + pitch_offset:
         logging.warning("Tubes are closer than minimum set distance")
 
+    #pitch = 1.25*D_outer_tube
+
     return pitch
 
 class Heat_Exchanger():
@@ -376,49 +378,50 @@ class Heat_Exchanger():
         for i, element in enumerate(self.cold_path.elements):
 
             if isinstance(element, Heat_Transfer_Element):
+                hot_sections = self.hot_flow_sections//self.cold_flow_sections
+                for j in range(hot_sections):
+                    # TODO: fix this temporary solution
+                    pitch = pitch_from_tubes(element.tubes[j], self.hot_flow_sections, element.pattern[j])
+                    
+                    if element.pattern[j] == Pattern.SQUARE:
+                        effective_d_shell = 1.27/D_outer_tube * (pitch**2 - 0.785 * D_outer_tube**2)
+                    elif element.pattern[j] == Pattern.TRIANGLE:
+                        effective_d_shell = 1.10/D_outer_tube * (pitch**2 - 0.917 * D_outer_tube**2)
+                    else:
+                        logging.error("Error: Unknown pattern")
 
-                # TODO: fix this temporary solution
-                pitch = pitch_from_tubes(element.tubes, self.cold_flow_sections, element.pattern)
+                    B_spacing = self.L_hot_tube / (element.baffles + 1)
+                    A_shell_effective = (pitch - D_outer_tube) * \
+                        B_spacing * D_shell / pitch
+
+                    v_shell = mdot_cold / (rho_w * A_shell_effective)
+
+                    Re_shell = v_shell * rho_w * effective_d_shell / mu
+
+                    j_f = 0.202 * Re_shell**(-0.153)
+
+                    DP_cold += 4 * j_f * (D_shell / effective_d_shell) * (element.baffles + 1)/self.hot_flow_sections \
+                        * rho_w * v_shell ** 2
                 
-                if element.pattern == Pattern.SQUARE:
-                    effective_d_shell = 1.27/D_outer_tube * (pitch**2 - 0.785 * D_outer_tube**2)
-                elif element.pattern == Pattern.TRIANGLE:
-                    effective_d_shell = 1.10/D_outer_tube * (pitch**2 - 0.917 * D_outer_tube**2)
-                else:
-                    logging.error("Error: Unknown pattern")
+                if isinstance(element, U_Bend):
 
-                B_spacing = self.L_hot_tube / (element.baffles + 1)
-                A_shell_effective = (pitch - D_outer_tube) * \
-                    B_spacing * D_shell / (pitch * self.cold_flow_sections)
+                    try:
+                        prev_element = self.cold_path.elements[i-1]
+                        assert isinstance(prev_element, Heat_Transfer_Element)
+                    except (IndexError, AssertionError):
+                        raise ValueError("U Bend must be preceded by a heat transfer element")
+                    
+                    # TODO: fix this temporary solution
+                    pitch = pitch_from_tubes(prev_element.tubes, self.cold_flow_sections, prev_element.pattern)
+                    
+                    B_spacing = self.L_hot_tube / (prev_element.baffles + 1)
+                    A_shell_effective = (pitch - D_outer_tube) * B_spacing * D_shell / pitch
 
-                v_shell = mdot_cold / (rho_w * A_shell_effective)
+                    A_section = A_shell_effective / self.cold_flow_sections
 
-                Re_shell = v_shell * rho_w * effective_d_shell / mu
-
-                j_f = 0.202 * Re_shell**(-0.153)
-
-                DP_cold += 4 * j_f * (D_shell / effective_d_shell) * (element.baffles + 1) \
-                    * rho_w * v_shell ** 2
-            
-            if isinstance(element, U_Bend):
-
-                try:
-                    prev_element = self.cold_path.elements[i-1]
-                    assert isinstance(prev_element, Heat_Transfer_Element)
-                except (IndexError, AssertionError):
-                    raise ValueError("U Bend must be preceded by a heat transfer element")
-                
-                # TODO: fix this temporary solution
-                pitch = pitch_from_tubes(prev_element.tubes, self.cold_flow_sections, prev_element.pattern)
-                
-                B_spacing = self.L_hot_tube / (prev_element.baffles + 1)
-                A_shell_effective = (pitch - D_outer_tube) * B_spacing * D_shell / pitch
-
-                A_section = A_shell_effective / self.cold_flow_sections
-
-                v_shell = mdot_cold / (rho_w * A_section)
-                
-                DP_cold += element.loss_coefficient() * 0.5 * rho_w * v_shell ** 2
+                    v_shell = mdot_cold / (rho_w * A_section)
+                    
+                    DP_cold += element.loss_coefficient() * 0.5 * rho_w * v_shell ** 2
             
 
         v_cold_nozzle = mdot_cold / (rho_w * A_nozzle)
@@ -476,10 +479,12 @@ class Heat_Exchanger():
                 effective_d_shell = 1.10/D_outer_tube * (pitch**2 - 0.917 * D_outer_tube**2) * self.cold_flow_sections**(-1/2)
             else:
                 logging.error("Error: Unknown pattern")
+            
+        
 
             B_spacing = self.L_hot_tube / (element.baffles + 1)
             A_shell_effective = (pitch - D_outer_tube) * \
-                B_spacing * D_shell / (pitch* self.cold_flow_sections)
+                B_spacing * D_shell / (pitch)
             
             v_shell = mdot_cold / (rho_w * A_shell_effective)
 
@@ -491,14 +496,14 @@ class Heat_Exchanger():
             Nu_o = j_h * Re_shell * Pr ** 0.33
 
             h_i = Nu_i * k_w / D_inner_tube
-            h_o = Nu_o * k_w / D_outer_tube
+            h_o = Nu_o * k_w / effective_d_shell
 
             A_i = np.pi * D_inner_tube * self.L_hot_tube
             A_o = np.pi * D_outer_tube * self.L_hot_tube
             one_over_H = 1/h_i + A_i * np.log(D_outer_tube / D_inner_tube) / (
                 2 * np.pi * k_tube * self.L_hot_tube) + (A_i / A_o) / h_o
             
-            areatimesH += element.tubes * np.pi * D_inner_tube * self.L_hot_tube / one_over_H
+            areatimesH += element.tubes * np.pi * D_inner_tube * self.L_hot_tube / one_over_H 
 
         # TODO: investigate why this is correct
         return areatimesH
@@ -713,13 +718,15 @@ class Heat_Exchanger():
         self.total_baffles = sum(baffles)
 
         baffles_per_hot_stage = np.zeros(hot_stages)
-        tubes_per_cold_stage = np.zeros(cold_stages)
+        tubes_per_cold_stage = []
+        tubes_per_cold_stage_temp = []
         for i in range(cold_stages):
             for j in range(hot_stages//cold_stages):
                 baffles_per_hot_stage[i*hot_stages//cold_stages + j] = baffles[i]
-                tubes_per_cold_stage[i] += tubes[i*hot_stages//cold_stages + j]   
-  
-            
+                tubes_per_cold_stage_temp.append(tubes[i*hot_stages//cold_stages + j])
+            tubes_per_cold_stage.append(tubes_per_cold_stage_temp)
+            tubes_per_cold_stage_temp = []
+                
         i = 0
         for element in self.hot_path.elements:
             if isinstance(element, Heat_Transfer_Element):
@@ -756,26 +763,39 @@ def build_heat_exchanger(tubes_per_stage, baffles_per_stage, length, flow_path_e
     tubes_per_stage = np.rint(tubes_per_stage)
     baffles_per_stage = np.rint(baffles_per_stage)
 
+    #cold_tube_patterns = np.empty((cold_stages, hot_stages//cold_stages), dtype=  'Pattern'>)
+    #hot_tube_patterns = np.empty(hot_stages, dtype=enum 'Pattern')
+    cold_tube_patterns_temp = []
+    cold_tube_patterns = []
+
     if isinstance(hot_tube_pattern, Pattern):
         hot_tube_patterns = [hot_tube_pattern] * hot_stages
     else:
         hot_tube_patterns = hot_tube_pattern
+    for i in range(cold_stages):
+        for j in range(hot_stages//cold_stages):
+            cold_tube_patterns_temp.append(hot_tube_patterns[i*hot_stages//cold_stages + j])
+        cold_tube_patterns.append(cold_tube_patterns_temp)
+        cold_tube_patterns_temp = []
 
-    if cold_tube_pattern is None:
+    '''if cold_tube_pattern is None:
         cold_tube_patterns = [hot_tube_pattern] * cold_stages
     elif isinstance(cold_tube_pattern, Pattern):
         cold_tube_patterns = [cold_tube_pattern] * cold_stages
     else:
-        cold_tube_patterns = cold_tube_pattern
+        cold_tube_patterns = cold_tube_pattern'''
     
     Hot_path = Fluid_Path(rho_w, mu, cp, k_w)
 
     baffles_per_hot_stage = np.zeros(hot_stages)
-    tubes_per_cold_stage = np.zeros(cold_stages)
+    tubes_per_cold_stage = []
+    tubes_per_cold_stage_temp = []
     for i in range(cold_stages):
         for j in range(hot_stages//cold_stages):
             baffles_per_hot_stage[i*hot_stages//cold_stages + j] = baffles_per_stage[i]
-            tubes_per_cold_stage[i] += tubes_per_stage[i*hot_stages//cold_stages + j]
+            tubes_per_cold_stage_temp.append(tubes_per_stage[i*hot_stages//cold_stages + j])
+        tubes_per_cold_stage.append(tubes_per_cold_stage_temp)
+        tubes_per_cold_stage_temp = []
 
     Hot_path.add_element(Entry_Constriction())
     Hot_path.add_element(
