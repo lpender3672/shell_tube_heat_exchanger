@@ -178,7 +178,7 @@ class Scipy_Optimise_Worker(QRunnable):
             return self.heat_exchanger.calc_mass()
 
         # require mass < 1.20kg
-        mass_constraint = NonlinearConstraint(calc_mass, 0.5, 1.20, jac='2-point')
+        mass_constraint = NonlinearConstraint(calc_mass, 0, max_HE_mass, jac='2-point')
         constraints.append(mass_constraint)
 
         # require pitch to be greater than D_outer_tube
@@ -312,9 +312,9 @@ class Scipy_Global_Optimise_Worker(Scipy_Optimise_Worker):
             result = scipy_shgo(self.objective_function, 
                                 bounds = bounds,
                                 constraints=self.constraints,
-                                n = 10,
+                                n = 50,
                                 options = {
-                                    'maxtime' : 30,
+                                    'maxtime' : 60,
                                     'f_min' : 0.1,
                                     'f_tol' : 0.001,
                                     'constraints_tol': 1e-8,

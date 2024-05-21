@@ -490,10 +490,20 @@ class Heat_Exchanger():
             # TODO: fix this temporary solution
             pitch = pitch_from_tubes(element.tubes, self.hot_flow_sections, element.pattern)
 
+
+            
             if element.pattern == Pattern.SQUARE:
+<<<<<<< HEAD
                 effective_d_shell = 1.27/D_outer_tube * (pitch**2 - 0.785 * D_outer_tube**2)
             elif element.pattern == Pattern.TRIANGLE:
                 effective_d_shell = 1.10/D_outer_tube * (pitch**2 - 0.917 * D_outer_tube**2) 
+=======
+                effective_d_shell = 1.27/D_outer_tube * (pitch**2 - 0.785 * D_outer_tube**2) * self.cold_flow_sections**(-1/2)
+                c = c_square
+            elif element.pattern == Pattern.TRIANGLE:
+                effective_d_shell = 1.10/D_outer_tube * (pitch**2 - 0.917 * D_outer_tube**2) * self.cold_flow_sections**(-1/2)
+                c = c_triangle
+>>>>>>> bb98292a8f820014a6e9c04a4671d3126e5b415b
             else:
                 logging.error("Error: Unknown pattern")
             
@@ -506,13 +516,14 @@ class Heat_Exchanger():
 
             Re_shell = v_shell * rho_w * effective_d_shell / mu
 
-            j_h = 0.4275*Re_shell**(-0.466)
+            #j_h = 0.4275*Re_shell**(-0.466)
 
             Nu_i = 0.023 * Re_hot ** 0.8 * Pr ** 0.33
-            Nu_o = j_h * Re_shell * Pr ** 0.33
+            #Nu_o = j_h * Re_shell * Pr ** 0.33
+            Nu_o = c * Re_shell ** 0.6 * Pr ** 0.33
 
             h_i = Nu_i * k_w / D_inner_tube
-            h_o = Nu_o * k_w / effective_d_shell
+            h_o = Nu_o * k_w / D_outer_tube
 
             A_i = np.pi * D_inner_tube * self.L_hot_tube
             A_o = np.pi * D_outer_tube * self.L_hot_tube
@@ -637,10 +648,10 @@ class Heat_Exchanger():
             effectiveness = Qdot / Qdot_max
             DT_min = np.max([(T1out - T1in), -(T2out - T2in)])
 
-
             self.Tout = [T1out, T2out]
             self.LMTD = LMTD
-            self.Qdot = Qdot
+            Qdot_corrected = 5.70618187e-01 * Qdot + 6.32419119e+03
+            self.Qdot = Qdot_corrected
             self.DT_min = DT_min
 
         elif (method == 'E_NTU'):
