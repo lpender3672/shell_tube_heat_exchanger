@@ -467,10 +467,18 @@ class Heat_Exchanger_Diagram(QWidget):
         self.effectiveness_box.setText(
             str(np.round(effectiveness,dpoints))
             )
-        
+
+        if mass > max_HE_mass:
+            self.mass_box.setStyleSheet("color: red;")
+        else:
+            self.mass_box.setStyleSheet("color: black;")
         self.mass_box.setText(
             str(np.round(mass,dpoints))
             )
+        if tube_length > max_total_tube_length:
+            self.total_tube_length_box.setStyleSheet("color: red;")
+        else:
+            self.total_tube_length_box.setStyleSheet("color: black;")
         self.total_tube_length_box.setText(
             str(np.round(tube_length,dpoints))
             )
