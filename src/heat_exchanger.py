@@ -493,16 +493,11 @@ class Heat_Exchanger():
 
             
             if element.pattern == Pattern.SQUARE:
-                effective_d_shell = 1.27/D_outer_tube * (pitch**2 - 0.785 * D_outer_tube**2)
-            elif element.pattern == Pattern.TRIANGLE:
-                effective_d_shell = 1.10/D_outer_tube * (pitch**2 - 0.917 * D_outer_tube**2) 
-=======
                 effective_d_shell = 1.27/D_outer_tube * (pitch**2 - 0.785 * D_outer_tube**2) * self.cold_flow_sections**(-1/2)
                 c = c_square
             elif element.pattern == Pattern.TRIANGLE:
                 effective_d_shell = 1.10/D_outer_tube * (pitch**2 - 0.917 * D_outer_tube**2) * self.cold_flow_sections**(-1/2)
                 c = c_triangle
->>>>>>> bb98292a8f820014a6e9c04a4671d3126e5b415b
             else:
                 logging.error("Error: Unknown pattern")
             
