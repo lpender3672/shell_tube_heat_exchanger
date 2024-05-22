@@ -105,7 +105,7 @@ class Optimise_Widget(QWidget):
 
             # scipy global optimise worker
             worker = Scipy_Global_Optimise_Worker(heat_exchanger)
-            # worker.signal.moveToThread(self.thread_pool.thread())
+            worker.signal.moveToThread(self.thread_pool.thread())
             
             # brute force worker
             # worker = Brute_Force_Worker(heat_exchanger)
@@ -118,8 +118,8 @@ class Optimise_Widget(QWidget):
             worker.build_constraints()
             
             self.workers.append(worker)
-            #worker.run()
-            self.thread_pool.start(worker)
+            worker.run()
+            #self.thread_pool.start(worker)
 
         
         logging.info("Optimisation started")
@@ -162,7 +162,7 @@ class Scipy_Optimise_Worker(QRunnable):
         self.heat_exchanger = heat_exchanger
         self.cancelled = False
         self.iteration_count = 1
-        self.emit_interval = 100
+        self.emit_interval = 1
         self.batch = np.zeros((0, 2))
 
         self.signal = Worker_Signals()
@@ -315,9 +315,10 @@ class Scipy_Global_Optimise_Worker(Scipy_Optimise_Worker):
             result = scipy_shgo(self.objective_function, 
                                 bounds = bounds,
                                 constraints=self.constraints,
-                                n = 10000,
+                                n = 100000,
                                 options = {
                                     'maxtime' : 60,
+                                    "f_min" : 0.5,
                                     'constraints_tol': 1e-8,
                                 },
                                 sampling_method='simplicial',

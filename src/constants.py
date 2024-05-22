@@ -29,6 +29,73 @@ hydraulic_error_tolerance = 1e-8
 thermal_error_tolerance = 1e-8
 
 
+cold_side_compressor_characteristic_2019 = np.array([[
+    0.6917,
+    0.6750,
+    0.6292,
+    0.5917,
+    0.5458,
+    0.5083,
+    0.4625,
+    0.4250,
+    0.3792,
+    0.3417,
+    0.2958,
+    0.2542,
+    0.2125,
+    0.1708
+    ],[
+    0.1475,
+    0.1619,
+    0.2178,
+    0.2607,
+    0.3041,
+    0.3417,
+    0.3756,
+    0.4118,
+    0.4423,
+    0.4711,
+    0.5031,
+    0.5297,
+    0.5561,
+    0.5823
+]])
+
+hot_side_compressor_characteristic_2019 = np.array([[
+    0.5382,
+    0.5278,
+    0.4931,
+    0.4549,
+    0.4201,
+    0.3854,
+    0.3507,
+    0.3160,
+    0.2813,
+    0.2465,
+    0.2118,
+    0.1771,
+    0.1424,
+    0.1076,
+    0.0694
+        ],[
+    0.1101,
+    0.1315,
+    0.1800,
+    0.2185,
+    0.2537,
+    0.2999,
+    0.3440,
+    0.3780,
+    0.4149,
+    0.4547,
+    0.5005,
+    0.5271,
+    0.5677,
+    0.5971,
+    0.6045
+    ]
+])
+
 cold_side_compressor_characteristic_2022 = np.array([[
     0.5833,
     0.5083,
@@ -235,6 +302,9 @@ if __name__ == "__main__":
 
     plt.plot(cold_side_compressor_characteristic_2022[0], cold_side_compressor_characteristic_2022[1], label = "2022 Cold side")
     plt.plot(hot_side_compressor_characteristic_2022[0], hot_side_compressor_characteristic_2022[1], label = "2022 Hot side")
+
+    plt.plot(cold_side_compressor_characteristic_2019[0], cold_side_compressor_characteristic_2019[1], label = "2019 Cold side")
+    plt.plot(hot_side_compressor_characteristic_2019[0], hot_side_compressor_characteristic_2019[1], label = "2019 Hot side")
 
     plt.xlabel("Mass flow rate (kg/s)")
     plt.ylabel("Pressure drop (Bar)")

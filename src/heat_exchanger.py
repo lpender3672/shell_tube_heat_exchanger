@@ -24,6 +24,8 @@ def cold_mass_flow_from_dp(cold_dp, year = 2024): # cold_dp in Pa
         cold_side_compressor_characteristic = cold_side_compressor_characteristic_2023
     elif year == 2022:
         cold_side_compressor_characteristic = cold_side_compressor_characteristic_2022
+    elif year == 2019:
+        cold_side_compressor_characteristic = cold_side_compressor_characteristic_2019
 
     
     return np.interp(cold_dp * 1e-5,
@@ -44,6 +46,8 @@ def hot_mass_flow_from_dp(hot_dp, year = 2024): # hot_dp in Pa
         hot_side_compressor_characteristic = hot_side_compressor_characteristic_2023
     elif year == 2022:
         hot_side_compressor_characteristic = hot_side_compressor_characteristic_2022
+    elif year == 2019:
+        hot_side_compressor_characteristic = hot_side_compressor_characteristic_2019
 
 
     return np.interp(hot_dp * 1e-5,  # bar
@@ -63,6 +67,8 @@ def dp_from_cold_mass_flow(mdot_cold, year = 2024):
             cold_side_compressor_characteristic = cold_side_compressor_characteristic_2023
         elif year == 2022:
             cold_side_compressor_characteristic = cold_side_compressor_characteristic_2022
+        elif year == 2019:
+            cold_side_compressor_characteristic = cold_side_compressor_characteristic_2019
         # check if in the range for the compressor characteristics
         
         return np.interp(mdot_cold * 1000 / rho_w,
@@ -76,6 +82,8 @@ def dp_from_hot_mass_flow(mdot_hot, year = 2024):
             hot_side_compressor_characteristic = hot_side_compressor_characteristic_2023
         elif year == 2022:
             hot_side_compressor_characteristic = hot_side_compressor_characteristic_2022
+        elif year == 2019:
+            hot_side_compressor_characteristic = hot_side_compressor_characteristic_2019
         
         return np.interp(mdot_hot * 1000 / rho_w,
                             np.fliplr(hot_side_compressor_characteristic)[0],
@@ -113,14 +121,14 @@ class e_NTU():
             e = (((1 - e_1 * self.C_ntu)/(1 - e_1))**self.N_shell - 1) / \
                 (((1 - e_1 * self.C_ntu)/(1 - e_1))**self.N_shell - self.C_ntu)
         
-        elif (self.N_shell == 1 and self.N_tube == 1):
-            if (self.flow_path_entries_side == Side.OPPOSITE):              ##single pass counterflow
+        elif (self.N_shell == self.N_tube): # N-N passes can be considered the same as a 1-1 pass?
+            if (self.flow_path_entries_side == Side.OPPOSITE):              ## N pass counterflow
                 if (self.C_ntu >=0 and self.C_ntu < 1):
                     e = (1-np.exp(-self.ntu*(1-self.C_ntu)))/(1-self.C_ntu*np.exp(-self.ntu*(1-self.C_ntu)))
                 elif (self.C_ntu ==1):
-                    e = self.ntu/(1+self.ntu)     
+                    e = self.ntu/(1+self.ntu)
 
-            elif (self.flow_path_entries_side == Side.SAME):                ##single pass parallelflow
+            elif (self.flow_path_entries_side == Side.SAME):                ## N pass parallelflow
                     e = (1-np.exp(-self.ntu*(1+self.C_ntu)))/(1+self.C_ntu)
         
         elif (self.N_shell == 1 and self.N_tube == 3 and self.flow_path_entries_side == Side.OPPOSITE): ## 1-3 shell-and-tube one parallelflow, 2 counterflow
@@ -148,9 +156,6 @@ class e_NTU():
         return e
     
     def F_factor(self):      
-        
-        if (self.N_tube == 2 and self.N_shell == 2):
-            return 1
                                                                            ##for the overall HX, use ntu_overall
         e = e_NTU.effectiveness(self)
         if (self.C_ntu >=0 and self.C_ntu < 1):
@@ -690,7 +695,12 @@ class Heat_Exchanger():
 
         m_seals = 4 * (m_nozzle + m_large_O + self.total_tubes * m_small_O)
 
-        m_baffles = baffle_area_occlusion_ratio * A_shell * rho_abs * self.total_baffles / self.cold_flow_sections
+        #baffle_area = (D_shell**2/4)*(np.pi - np.arccos(1-2*baffle_cut/D_shell)) + (D_shell-baffle_cut)*(D_shell**2-(D_shell-baffle_cut)**2)**0.5
+        # say two tubes are unbaffled in the unoccluded area
+        unbaffled_tubes = 2
+        baffle_area = baffle_area_occlusion_ratio * A_shell - (self.total_tubes - unbaffled_tubes) * np.pi * D_outer_tube**2 / 4
+
+        m_baffles = baffle_area * rho_abs * self.total_baffles / self.cold_flow_sections
         
         m_caps = 2 * end_cap_width * A_shell * rho_abs # TODO: check end cap mass and inlcude mass of hot and cold section dividers
 
