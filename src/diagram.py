@@ -600,7 +600,7 @@ class Heat_Exchanger_Diagram(QWidget):
 
             zigzag_width1 = 10
             x_per_zigzag = 200 * self.heat_exchanger.hot_flow_sections * self.heat_exchanger.cold_flow_sections / self.heat_exchanger.total_tubes
-            num_segments1 = 2 + int((end_point1.x() - start_point1.x()) / x_per_zigzag)
+            num_segments1 = 6 + int((end_point1.x() - start_point1.x()) / x_per_zigzag)
             color1 = Qt.GlobalColor.blue
             width1 = 2
 
@@ -622,7 +622,7 @@ class Heat_Exchanger_Diagram(QWidget):
  
             zigzag_width1 = 10
             x_per_zigzag = 200 * self.heat_exchanger.hot_flow_sections / num_tubes[i]
-            num_segments1 = 2 + int((end_point1.x() - start_point1.x()) // x_per_zigzag)
+            num_segments1 = 6 + int((end_point1.x() - start_point1.x()) // x_per_zigzag)
             color1 = Qt.GlobalColor.red
             width1 = 2
 

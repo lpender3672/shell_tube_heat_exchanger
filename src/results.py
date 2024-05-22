@@ -74,7 +74,7 @@ class Convergence_Graph(QWidget):
         
         if self.input_data is None:
             return
-        if self.output_data.shape[0] == 0:
+        if self.output_data.shape[0] == 0 or self.input_data.shape[0] == 0:
             return
         
         self.ax.clear()
@@ -92,7 +92,14 @@ class Convergence_Graph(QWidget):
         self.ax.autoscale()
         self.canvas.draw_idle()
 
-        self.figure.tight_layout()
+        self.figure.subplots_adjust(
+            top=0.957,
+            bottom=0.167,
+            left=0.12,
+            right=0.971,
+            hspace=0.2,
+            wspace=0.2
+        )
     
     def clear(self):
 
@@ -106,7 +113,14 @@ class Convergence_Graph(QWidget):
         self.ax.grid()
         self.canvas.draw_idle()
 
-        #self.figure.tight_layout()
+        self.figure.subplots_adjust(
+            top=0.957,
+            bottom=0.167,
+            left=0.12,
+            right=0.971,
+            hspace=0.2,
+            wspace=0.2
+        )
 
 class State_Space_Graph(QWidget):
     def __init__(self):
@@ -198,7 +212,14 @@ class State_Space_Graph(QWidget):
         self.ax.autoscale()
         self.canvas.draw_idle()
 
-        self.figure.tight_layout()
+        self.figure.subplots_adjust(
+            top=0.946,
+            bottom=0.167,
+            left=0.12,
+            right=0.88,
+            hspace=0.2,
+            wspace=0.2
+        )
     
     def clear(self):
 
@@ -214,7 +235,14 @@ class State_Space_Graph(QWidget):
         self.ax.grid()
         self.canvas.draw_idle()
 
-        #self.figure.tight_layout()
+        self.figure.subplots_adjust(
+            top=0.946,
+            bottom=0.167,
+            left=0.12,
+            right=0.88,
+            hspace=0.2,
+            wspace=0.2
+        )
 
 
 class Results_Widget(QWidget):
