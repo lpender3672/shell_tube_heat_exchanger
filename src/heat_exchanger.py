@@ -124,9 +124,9 @@ class e_NTU():
         elif (self.N_shell == self.N_tube): # N-N passes can be considered the same as a 1-1 pass?
             if (self.flow_path_entries_side == Side.OPPOSITE):              ## N pass counterflow
                 if (self.C_ntu >=0 and self.C_ntu < 1):
-                    e = (1-np.exp(-self.ntu*(1-self.C_ntu)))/(1-self.C_ntu*np.exp(-self.ntu*(1-self.C_ntu)))
+                    e = (1-np.exp(-self.ntu_overall*(1-self.C_ntu)))/(1-self.C_ntu*np.exp(-self.ntu_overall*(1-self.C_ntu)))
                 elif (self.C_ntu ==1):
-                    e = self.ntu/(1+self.ntu)
+                    e = self.ntu_overall/(1+self.ntu_overall)
 
             elif (self.flow_path_entries_side == Side.SAME):                ## N pass parallelflow
                     e = (1-np.exp(-self.ntu*(1+self.C_ntu)))/(1+self.C_ntu)
