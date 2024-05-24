@@ -1,12 +1,14 @@
 
+import scipy.stats
 from constants import *
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy
 
 
-df = pd.read_csv('GA3_previous_designs.csv')
+df = pd.read_csv('src\GA3_previous_designs.csv')
 
 # remove weird group C designs
 df = df[~((df["year"] == 2022) & (df["group"] == "Group-C"))] # remove group C 2022
@@ -65,11 +67,28 @@ def K_s(N):
 
 unknown_function = (dp_cold_rel - 2*(v_nozzle/(v_shell))**2 - K_s(cold_passes) ) * d_shell_effective/(D_shell*(baffles/cold_passes +1))
 
-print(unknown_function)
+#print(unknown_function)
+x_vals = -np.logspace(0.1,1,10000)
+regression = []
+r_sq = np.ones_like(x_vals)
+
+for i in range(len(x_vals)):
+    regression.append(scipy.stats.linregress((Re_shell)*x_vals[i], np.log10(unknown_function)))
+    r_sq[i] = regression[i][2]
+
+x_max = np.argmax(r_sq)
+r_max = np.max(r_sq)
+
+best_regression = regression[x_max]
 
 
-plt.scatter(Re_shell**(-0.15), unknown_function)
+fit = np.poly1d(best_regression[0:2])
+
+print(x_vals[x_max], r_max)
+print(best_regression)
+
+plt.plot(Re_shell*x_vals[x_max], fit(Re_shell*x_vals[x_max]))
+
+plt.scatter(Re_shell*x_vals[x_max], np.log10(unknown_function))
+
 plt.show()
-
-
-
