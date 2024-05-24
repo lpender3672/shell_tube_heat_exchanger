@@ -315,9 +315,9 @@ class Scipy_Global_Optimise_Worker(Scipy_Optimise_Worker):
             result = scipy_shgo(self.objective_function, 
                                 bounds = bounds,
                                 constraints=self.constraints,
-                                n = 100000,
+                                n = 1000000,
                                 options = {
-                                    'maxtime' : 60,
+                                    'maxtime' : 200,
                                     "f_min" : 0.5,
                                     'constraints_tol': 1e-8,
                                 },
