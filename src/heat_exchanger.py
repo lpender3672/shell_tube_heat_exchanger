@@ -303,9 +303,6 @@ class Heat_Exchanger():
 
         self.hydraulic_iteration_count = 0
 
-        # TODO: change these to be actually correct
-        self.hot_pressure_factor = 1
-        self.cold_pressure_factor = 1
 
     def set_conditions(self, Tin):
         self.Tin = Tin
@@ -402,7 +399,6 @@ class Heat_Exchanger():
             if isinstance(element, Heat_Transfer_Element):
                 hot_sections = self.hot_flow_sections//self.cold_flow_sections
                 for j in range(hot_sections):
-                    # TODO: fix this temporary solution
                     pitch = pitch_from_tubes(element.tubes[j], self.hot_flow_sections, element.pattern[j])
                     
                     if element.pattern[j] == Pattern.SQUARE:
@@ -433,7 +429,6 @@ class Heat_Exchanger():
                     except (IndexError, AssertionError):
                         raise ValueError("U Bend must be preceded by a heat transfer element")
                     
-                    # TODO: fix this temporary solution
                     pitch = pitch_from_tubes(prev_element.tubes, self.cold_flow_sections, prev_element.pattern)
                     
                     B_spacing = self.L_hot_tube / (prev_element.baffles + 1)
@@ -451,8 +446,8 @@ class Heat_Exchanger():
         DP_cold += rho_w * v_cold_nozzle**2
         
         # Fudge factors based on experimental data in analysis.ipynb
-        DP_cold = 1.45443318e+00 * DP_cold + 1.22838965e+04
-        DP_hot = 4.37738030e-01 * DP_hot + 7.86899623e+03
+        DP_cold = 1.35525014e+00 * DP_cold + 1.08200831e+04
+        DP_hot = 5.20759596e-01 * DP_hot + 5.49446226e+03
 
         return DP_cold, DP_hot
 
@@ -496,10 +491,7 @@ class Heat_Exchanger():
             Re_hot = v_hot_tube * rho_w * D_inner_tube / mu
 
             # obtain the heat transfer coefficient for the inner and outer tubes
-            # TODO: fix this temporary solution
             pitch = pitch_from_tubes(element.tubes, self.hot_flow_sections, element.pattern)
-
-
             
             if element.pattern == Pattern.SQUARE:
                 effective_d_shell = 1.27/D_outer_tube * (pitch**2 - 0.785 * D_outer_tube**2) * self.cold_flow_sections**(-1/2)
@@ -535,7 +527,6 @@ class Heat_Exchanger():
             
             areatimesH += element.tubes * np.pi * D_inner_tube * self.L_hot_tube / one_over_H 
 
-        # TODO: investigate why this is correct
         return areatimesH
 
     def LMTD_heat_solve_iteration(self, Tout):
@@ -548,7 +539,6 @@ class Heat_Exchanger():
         N_shell = self.cold_flow_sections
         N_tube = self.hot_flow_sections
         
-        # TODO: calculate this for various cold flow sections
         NTU = e_NTU(areatimesH, C_1, C_2, N_shell, N_tube, self.flow_path_entries_side)
 
         Fscale = e_NTU.F_factor(NTU)
@@ -702,8 +692,7 @@ class Heat_Exchanger():
 
         m_baffles = baffle_area * rho_abs * self.total_baffles / self.cold_flow_sections
         
-        m_caps = 2 * end_cap_width * A_shell * rho_abs # TODO: check end cap mass and inlcude mass of hot and cold section dividers
-
+        m_caps = 2 * end_cap_width * A_shell * rho_abs
         m_seperator = (self.cold_flow_sections - 1) * (self.L_hot_tube - end_cap_width_nozzle) * (D_shell) * rho_abs
         if self.cold_flow_sections > 2:
             logging.error("Warning: Cold flow sections is greater than 2, this is not supported")
@@ -723,7 +712,6 @@ class Heat_Exchanger():
 
         for element in self.hot_path.elements:
             if isinstance(element, Heat_Transfer_Element):
-                # TODO: fix this temporary solution
                 pitch = pitch_from_tubes(element.tubes, self.hot_flow_sections, element.pattern)
                 pitches.append(pitch)
         
