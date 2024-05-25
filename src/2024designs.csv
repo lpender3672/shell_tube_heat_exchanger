@@ -1,0 +1,6 @@
+year,group,Tube Length,Tubes,Baffles,Pattern,Side,Rotameter in1,Rotameter out1, DP_meas1, Tcold_in, Tcold_out,Rotameter in2,Rotameter out2,  DP_meas2, Thot_in, Thot_out,Flowrate1,DP_HX1,Qdot1,Flowrate2,DP_HX2,Qdot2,Qave,Effectiveness,Qcorr,Mass,Total Length
+2024,Group-A,0.278,"6,6",8,TRIANGLE,OPPOSITE,,,,,,,,,,,,,,,,,,,,,
+2024,Group-B,0.26,"6,6",8,TRIANGLE,OPPOSITE,,,,,,,,,,,,,,,,,,,,,
+2024,Group-C,0.29,"6,6","8,8",TRIANGLE,OPPOSITE,,,,,,,,,,,,,,,,,,,,,
+2024,Group-D,0.25,"7,7",6,TRIANGLE,OPPOSITE,,,,,,,,,,,,,,,,,,,,,
+2024,Group-E,0.233,"5,5,5",8,TRIANGLE,OPPOSITE,,,,,,,,,,,,,,,,,,,,,

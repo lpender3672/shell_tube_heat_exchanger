@@ -104,7 +104,7 @@ class Optimise_Widget(QWidget):
             # worker.build_constraints()
 
             # scipy global optimise worker
-            worker = Scipy_Global_Optimise_Worker(heat_exchanger)
+            worker = Scipy_Optimise_Worker(heat_exchanger)
             worker.signal.moveToThread(self.thread_pool.thread())
             
             # brute force worker
@@ -118,8 +118,8 @@ class Optimise_Widget(QWidget):
             worker.build_constraints()
             
             self.workers.append(worker)
-            worker.run()
-            #self.thread_pool.start(worker)
+            #worker.run()
+            self.thread_pool.start(worker)
 
         
         logging.info("Optimisation started")
@@ -261,19 +261,35 @@ class Scipy_Optimise_Worker(QRunnable):
         rand_tubes = np.random.randint(1, max_baffles_per_section)
         rand_baffles = np.random.randint(1, max_tubes_per_section)
 
-        x0 = [0.3]
+        lmax = max_HE_length - end_cap_width_nozzle
+        if self.heat_exchanger.hot_flow_sections % 2 == 0:
+             # for hot flow nozzles on same side the opposite end cap width is smaller, allowing for larger max length
+            lmax -= end_cap_width
+        else:
+            lmax -= end_cap_width_nozzle
+
+        x0 = [lmax]
         x0.extend([rand_baffles for _ in range(self.heat_exchanger.cold_flow_sections)])
         x0.extend([rand_tubes for _ in range(self.heat_exchanger.hot_flow_sections)])
+
+        for i in range(1, self.heat_exchanger.cold_flow_sections + 1):
+            self.constraints.append({'type': 'eq', 'fun': lambda x, i=i: max_baffles_per_section - x[i]})
+
+        for i in range(self.heat_exchanger.cold_flow_sections + 1, self.heat_exchanger.cold_flow_sections + self.heat_exchanger.hot_flow_sections + 1):
+            self.constraints.append({'type': 'eq', 'fun': lambda x, i=i: max_tubes_per_section - x[i]})
+        self.constraints.append({'type':'ineq', 'fun': lambda x: lmax - x[0]})
 
         try:
             result = scipy_minimize(
                             self.objective_function, 
                             x0, 
-                            method='trust-constr',
+                            method='SLSQP',
                             jac="2-point",
-                            hess=BFGS(),
                             constraints=self.constraints,
-                            options={'verbose': 1, 'maxiter':1000}
+                            options={   'verbose': 1, 
+                                        'maxiter':1000,
+                                        'ftol' : 1e-6,
+                                        'esp' : 0.5}
                             )
         except Exception as e:
             print(e)
@@ -315,9 +331,9 @@ class Scipy_Global_Optimise_Worker(Scipy_Optimise_Worker):
             result = scipy_shgo(self.objective_function, 
                                 bounds = bounds,
                                 constraints=self.constraints,
-                                n = 100000,
+                                n = 1000000,
                                 options = {
-                                    'maxtime' : 60,
+                                    'maxtime' : 200,
                                     "f_min" : 0.5,
                                     'constraints_tol': 1e-8,
                                 },

@@ -124,9 +124,9 @@ class e_NTU():
         elif (self.N_shell == self.N_tube): # N-N passes can be considered the same as a 1-1 pass?
             if (self.flow_path_entries_side == Side.OPPOSITE):              ## N pass counterflow
                 if (self.C_ntu >=0 and self.C_ntu < 1):
-                    e = (1-np.exp(-self.ntu*(1-self.C_ntu)))/(1-self.C_ntu*np.exp(-self.ntu*(1-self.C_ntu)))
+                    e = (1-np.exp(-self.ntu_overall*(1-self.C_ntu)))/(1-self.C_ntu*np.exp(-self.ntu_overall*(1-self.C_ntu)))
                 elif (self.C_ntu ==1):
-                    e = self.ntu/(1+self.ntu)
+                    e = self.ntu_overall/(1+self.ntu_overall)
 
             elif (self.flow_path_entries_side == Side.SAME):                ## N pass parallelflow
                     e = (1-np.exp(-self.ntu*(1+self.C_ntu)))/(1+self.C_ntu)
@@ -407,10 +407,14 @@ class Heat_Exchanger():
                         effective_d_shell = 1.10/D_outer_tube * (pitch**2 - 0.917 * D_outer_tube**2)
                     else:
                         logging.error("Error: Unknown pattern")
+                    
+                    effective_d_shell  = (D_shell**2 - self.total_tubes*D_outer_tube**2)/(self.total_tubes*D_outer_tube)
+                    
 
                     B_spacing = self.L_hot_tube / (element.baffles + 1)
                     A_shell_effective = (pitch - D_outer_tube) * \
                         B_spacing * D_shell / pitch
+                    
 
                     v_shell = mdot_cold / (rho_w * A_shell_effective)
 
@@ -421,7 +425,8 @@ class Heat_Exchanger():
                     DP_cold += 4 * j_f * (D_shell / effective_d_shell) * (element.baffles + 1)/self.hot_flow_sections \
                         * rho_w * v_shell ** 2
                 
-                if isinstance(element, U_Bend):
+            if isinstance(element, U_Bend):
+                for i in range(hot_sections):
 
                     try:
                         prev_element = self.cold_path.elements[i-1]
@@ -429,7 +434,8 @@ class Heat_Exchanger():
                     except (IndexError, AssertionError):
                         raise ValueError("U Bend must be preceded by a heat transfer element")
                     
-                    pitch = pitch_from_tubes(prev_element.tubes, self.cold_flow_sections, prev_element.pattern)
+                    pitch = pitch_from_tubes(prev_element.tubes[i], self.cold_flow_sections, prev_element.pattern[i])
+
                     
                     B_spacing = self.L_hot_tube / (prev_element.baffles + 1)
                     A_shell_effective = (pitch - D_outer_tube) * B_spacing * D_shell / pitch
@@ -438,7 +444,7 @@ class Heat_Exchanger():
 
                     v_shell = mdot_cold / (rho_w * A_section)
                     
-                    DP_cold += element.loss_coefficient() * 0.5 * rho_w * v_shell ** 2
+                    DP_cold += element.loss_coefficient() * 0.5 * rho_w * v_shell ** 2/self.hot_flow_sections
             
 
         v_cold_nozzle = mdot_cold / (rho_w * A_nozzle)
@@ -448,6 +454,12 @@ class Heat_Exchanger():
         # Fudge factors based on experimental data in analysis.ipynb
         DP_cold = 1.35525014e+00 * DP_cold + 1.08200831e+04
         DP_hot = 5.20759596e-01 * DP_hot + 5.49446226e+03
+
+        DP_cold = 2.0782816914547007 * DP_cold + 6316.406315165725
+        DP_hot = 0.5207595964160064 * DP_hot + 5494.462263156731
+
+        #DP_cold = 1.984012962563786 * DP_cold +7217.109422930143
+        #DP_cold = 1.6953864289383282 * DP_cold-10686.652389444924
 
         return DP_cold, DP_hot
 
@@ -494,10 +506,10 @@ class Heat_Exchanger():
             pitch = pitch_from_tubes(element.tubes, self.hot_flow_sections, element.pattern)
             
             if element.pattern == Pattern.SQUARE:
-                effective_d_shell = 1.27/D_outer_tube * (pitch**2 - 0.785 * D_outer_tube**2) * self.cold_flow_sections**(-1/2)
+                effective_d_shell = 1.27/D_outer_tube * (pitch**2 - 0.785 * D_outer_tube**2) 
                 c = c_square
             elif element.pattern == Pattern.TRIANGLE:
-                effective_d_shell = 1.10/D_outer_tube * (pitch**2 - 0.917 * D_outer_tube**2) * self.cold_flow_sections**(-1/2)
+                effective_d_shell = 1.10/D_outer_tube * (pitch**2 - 0.917 * D_outer_tube**2) 
                 c = c_triangle
             else:
                 logging.error("Error: Unknown pattern")
@@ -506,19 +518,21 @@ class Heat_Exchanger():
             B_spacing = self.L_hot_tube / (element.baffles + 1)
             A_shell_effective = (pitch - D_outer_tube) * \
                 B_spacing * D_shell / (pitch)
+            effective_d_shell  =  (D_shell**2 - self.total_tubes*D_outer_tube**2)/(self.total_tubes*D_outer_tube)
             
             v_shell = mdot_cold / (rho_w * A_shell_effective)
 
             Re_shell = v_shell * rho_w * effective_d_shell / mu
 
-            #j_h = 0.4275*Re_shell**(-0.466)
+            j_h = 0.4275*Re_shell**(-0.466)
 
             Nu_i = 0.023 * Re_hot ** 0.8 * Pr ** 0.33
-            #Nu_o = j_h * Re_shell * Pr ** 0.33
-            Nu_o = c * Re_shell ** 0.6 * Pr ** 0.33
+            Nu_o = j_h * Re_shell * Pr ** 0.33
+            #Nu_o = c * Re_shell ** 0.6 * Pr ** 0.33
 
             h_i = Nu_i * k_w / D_inner_tube
             h_o = Nu_o * k_w / D_outer_tube
+            #h_o = Nu_o * k_w / effective_d_shell
 
             A_i = np.pi * D_inner_tube * self.L_hot_tube
             A_o = np.pi * D_outer_tube * self.L_hot_tube
@@ -643,8 +657,9 @@ class Heat_Exchanger():
 
             self.Tout = [T1out, T2out]
             self.LMTD = LMTD
-            Qdot_corrected = 5.70618187e-01 * Qdot + 6.32419119e+03
-            self.Qdot = Qdot_corrected
+            self.Qdot = Qdot
+            #Qdot_corrected = 5.70618187e-01 * Qdot + 6.32419119e+03
+            #self.Qdot = Qdot_corrected
             self.DT_min = DT_min
 
         elif (method == 'E_NTU'):
@@ -673,6 +688,9 @@ class Heat_Exchanger():
             # could possibly iterate to find Fscale with the new T1out and T2out
 
         self.effectiveness = effectiveness
+        Qdot_corrected = 0.5083278756212372 * Qdot + 6425.748610071553
+        #Qdot_corrected = 0.5173616955929328 * Qdot + 6347.84023109489
+        self.Qdot = Qdot_corrected
 
         return True
 
