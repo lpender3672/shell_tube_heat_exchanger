@@ -251,6 +251,7 @@ def pitch_from_tubes(tubes_per_section, N, pattern):
     
     elif pitch < D_outer_tube + pitch_offset:
         logging.warning("Tubes are closer than minimum set distance")
+        pitch = D_outer_tube + pitch_offset
 
     #pitch = 1.25*D_outer_tube
     #print(pitch)

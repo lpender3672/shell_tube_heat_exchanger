@@ -423,7 +423,7 @@ class Heat_Exchanger_Diagram(QWidget):
 
         self.heat_exchanger.set_conditions([T1in, T2in])
         res = self.heat_exchanger.compute_effectiveness(
-            method='LMTD', optimiser = 'fsolve'
+            method='E_NTU', optimiser = 'fsolve'
         )
 
         if not res:
