@@ -21,6 +21,7 @@ k_w = 0.632 # W / mK
 mu = 6.51e-4 # kg/ms
 k_tube = 386 # W / mK
 Pr = 4.31
+Rf_water = 0.000176 # K / W
 
 Moody_Transition_RE = 10e5
 max_hydraulic_iterations = 100

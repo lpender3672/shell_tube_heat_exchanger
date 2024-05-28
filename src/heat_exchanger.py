@@ -299,14 +299,16 @@ class Heat_Exchanger():
 
         # initial values
         self.mdot = [0.3, 0.25]
+        self.Rfouling = [0, 0]
 
         self.L_hot_tube = 0.35 - 2 * end_cap_width
 
         self.hydraulic_iteration_count = 0
 
 
-    def set_conditions(self, Tin):
+    def set_conditions(self, Tin, Rfouling = [0, 0]):
         self.Tin = Tin
+        self.Rfouling = Rfouling
 
     def calc_dp(self, mdot):
 
@@ -537,7 +539,10 @@ class Heat_Exchanger():
             one_over_H = 1/h_i + A_i * np.log(D_outer_tube / D_inner_tube) / (
                 2 * np.pi * k_tube * self.L_hot_tube) + (A_i / A_o) / h_o
             
-            areatimesH += element.tubes * np.pi * D_inner_tube * self.L_hot_tube / one_over_H 
+            # additional fouling resistance
+            one_over_H += self.Rfouling[0] + D_outer_tube / D_inner_tube * self.Rfouling[1]
+            
+            areatimesH += element.tubes * np.pi * D_inner_tube * self.L_hot_tube / one_over_H
 
         return areatimesH
 

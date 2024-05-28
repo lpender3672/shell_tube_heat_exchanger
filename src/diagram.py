@@ -368,6 +368,7 @@ class Heat_Exchanger_Diagram(QWidget):
 
         # Set up the layout
         layout = QGridLayout()
+
         layout.addWidget(self.cold_inlet_box, 0, 0)
         layout.addWidget(self.hot_inlet_box, 0, 1)
         layout.addWidget(self.cold_outlet_box, 1, 0)
@@ -444,7 +445,7 @@ class Heat_Exchanger_Diagram(QWidget):
 
         mass = self.heat_exchanger.calc_mass()
         tube_length = self.heat_exchanger.total_tubes * self.heat_exchanger.L_hot_tube
-        print(self.heat_exchanger.total_tubes, tube_length)
+        #print(self.heat_exchanger.total_tubes, tube_length)
 
         dpoints = 4
 

@@ -42,6 +42,7 @@ class MainWindow(QMainWindow):
         self.HE_diagram = Heat_Exchanger_Diagram(self, 600, 400)
 
         diagram_label = QLabel("Heat Exchanger Diagram")
+        diagram_label.setStyleSheet("font-size: 16pt")
 
         self.HE_diagram.setFixedWidth(600)
         
@@ -92,6 +93,22 @@ class MainWindow(QMainWindow):
         self.attach_signals()
         self.HE_definition.load_heat_exchanger(HXchanger)
         self.HE_diagram.set_conditions([20,60])
+
+
+
+        instructions = QLabel("Instructions: \n"
+        "1. Define the heat exchanger geometry and conditions\n"
+            "   - Doubleclick 'Add Section' button to add a new section\n"
+            "  - Doubleclick the pass on the left to remove a pass\n"
+        "2. Click 'Optimise' to run the optimisation algorithm\n"
+        "3. View iteration progress in the log and graphs\n"
+            "- Optimal heat exchanger will be loaded into the definition table"
+        )
+        instructions.setStyleSheet("font-size: 12pt")
+
+        layout.addWidget(instructions, 1, 2, 1, 2)
+
+        instructions.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         
     def attach_signals(self):
