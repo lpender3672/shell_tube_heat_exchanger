@@ -260,7 +260,6 @@ def pitch_from_tubes(tubes_per_section, N, pattern):
 
 class Heat_Exchanger():
     def __init__(self, cold_fluid_path, hot_fluid_path, flow_path_entries_side):
-        super().__init__()
 
         self.characteristic_year = 2024
 
