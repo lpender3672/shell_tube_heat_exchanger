@@ -690,9 +690,9 @@ class Heat_Exchanger():
             # could possibly iterate to find Fscale with the new T1out and T2out
 
         self.effectiveness = effectiveness
-        Qdot_corrected = 0.5083278756212372 * Qdot + 6425.748610071553
+        #Qdot_corrected = 0.5083278756212372 * Qdot + 6425.748610071553
         #Qdot_corrected = 0.5173616955929328 * Qdot + 6347.84023109489
-        self.Qdot = Qdot_corrected
+        self.Qdot = 0.5083278756212372 * Qdot + 6425.748610071553
 
         return True
 
