@@ -256,7 +256,7 @@ hot_side_compressor_characteristic_2024 = np.array([[
 
 max_HE_length = 0.35 # m
 max_total_tube_length = 3.5
-max_HE_mass = 1.1
+max_HE_mass = 1.15
 D_shell = 0.064 # m
 D_inlet_nozzle = 0.02 # m
 D_inner_tube = 0.006 # m
@@ -333,5 +333,6 @@ if __name__ == "__main__":
     
     plt.legend()
     plt.grid()
-    plt.show()
+
+    plt.savefig("compressor_characteristics.png")
 
