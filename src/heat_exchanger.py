@@ -18,7 +18,7 @@ from fluid_path import Fluid_Path, Entry_Constriction, Exit_Expansion, U_Bend, H
 
 def cold_mass_flow_from_dp(cold_dp, year = 2024): # cold_dp in Pa
 
-    if year == 2024:
+    if year in [2024, 20243, 20244]:
         cold_side_compressor_characteristic = cold_side_compressor_characteristic_2024
     elif year == 2023:
         cold_side_compressor_characteristic = cold_side_compressor_characteristic_2023
@@ -26,6 +26,11 @@ def cold_mass_flow_from_dp(cold_dp, year = 2024): # cold_dp in Pa
         cold_side_compressor_characteristic = cold_side_compressor_characteristic_2022
     elif year == 2019:
         cold_side_compressor_characteristic = cold_side_compressor_characteristic_2019
+    # check if in the range for the compressor characteristics
+    elif year == 20241:
+        cold_side_compressor_characteristic = 0.95 * cold_side_compressor_characteristic_2024
+    elif year == 20242:
+        cold_side_compressor_characteristic = 1.05 * cold_side_compressor_characteristic_2024
 
     
     return np.interp(cold_dp * 1e-5,
@@ -40,7 +45,7 @@ def cold_mass_flow_from_dp(cold_dp, year = 2024): # cold_dp in Pa
 
 def hot_mass_flow_from_dp(hot_dp, year = 2024): # hot_dp in Pa
 
-    if year == 2024:
+    if year in [2024, 20241, 20242]:
         hot_side_compressor_characteristic = hot_side_compressor_characteristic_2024
     elif year == 2023:
         hot_side_compressor_characteristic = hot_side_compressor_characteristic_2023
@@ -48,6 +53,11 @@ def hot_mass_flow_from_dp(hot_dp, year = 2024): # hot_dp in Pa
         hot_side_compressor_characteristic = hot_side_compressor_characteristic_2022
     elif year == 2019:
         hot_side_compressor_characteristic = hot_side_compressor_characteristic_2019
+    
+    elif year == 20243:
+        hot_side_compressor_characteristic = 0.95 * hot_side_compressor_characteristic_2024
+    elif year == 20244:
+        hot_side_compressor_characteristic = 1.05 * hot_side_compressor_characteristic_2024
 
 
     return np.interp(hot_dp * 1e-5,  # bar
@@ -61,33 +71,46 @@ def hot_mass_flow_from_dp(hot_dp, year = 2024): # hot_dp in Pa
     
 
 def dp_from_cold_mass_flow(mdot_cold, year = 2024):
-        if year == 2024:
-            cold_side_compressor_characteristic = cold_side_compressor_characteristic_2024
-        elif year == 2023:
-            cold_side_compressor_characteristic = cold_side_compressor_characteristic_2023
-        elif year == 2022:
-            cold_side_compressor_characteristic = cold_side_compressor_characteristic_2022
-        elif year == 2019:
-            cold_side_compressor_characteristic = cold_side_compressor_characteristic_2019
-        # check if in the range for the compressor characteristics
-        
-        return np.interp(mdot_cold * 1000 / rho_w,
-                        np.fliplr(cold_side_compressor_characteristic)[0],
-                        np.fliplr(cold_side_compressor_characteristic)[1]) * 1e5  # Pa
+    if year in [2024, 20243, 20244]:
+        cold_side_compressor_characteristic = cold_side_compressor_characteristic_2024
+    elif year == 2023:
+        cold_side_compressor_characteristic = cold_side_compressor_characteristic_2023
+    elif year == 2022:
+        cold_side_compressor_characteristic = cold_side_compressor_characteristic_2022
+    elif year == 2019:
+        cold_side_compressor_characteristic = cold_side_compressor_characteristic_2019
+    # check if in the range for the compressor characteristics
+    elif year == 20241:
+        cold_side_compressor_characteristic = cold_side_compressor_characteristic_2024
+        cold_side_compressor_characteristic[0] *= 1
+    elif year == 20242:
+        cold_side_compressor_characteristic = cold_side_compressor_characteristic_2024
+        cold_side_compressor_characteristic[0] *= 1
+    
+    return np.interp(mdot_cold * 1000 / rho_w,
+                    np.fliplr(cold_side_compressor_characteristic)[0],
+                    np.fliplr(cold_side_compressor_characteristic)[1]) * 1e5  # Pa
 
 def dp_from_hot_mass_flow(mdot_hot, year = 2024):
-        if year == 2024:
-            hot_side_compressor_characteristic = hot_side_compressor_characteristic_2024
-        elif year == 2023:
-            hot_side_compressor_characteristic = hot_side_compressor_characteristic_2023
-        elif year == 2022:
-            hot_side_compressor_characteristic = hot_side_compressor_characteristic_2022
-        elif year == 2019:
-            hot_side_compressor_characteristic = hot_side_compressor_characteristic_2019
-        
-        return np.interp(mdot_hot * 1000 / rho_w,
-                            np.fliplr(hot_side_compressor_characteristic)[0],
-                            np.fliplr(hot_side_compressor_characteristic)[1]) * 1e5  # Pa
+    if year == 2024:
+        hot_side_compressor_characteristic = hot_side_compressor_characteristic_2024
+    elif year == 2023:
+        hot_side_compressor_characteristic = hot_side_compressor_characteristic_2023
+    elif year == 2022:
+        hot_side_compressor_characteristic = hot_side_compressor_characteristic_2022
+    elif year == 2019:
+        hot_side_compressor_characteristic = hot_side_compressor_characteristic_2019
+
+    elif year == 20241:
+        hot_side_compressor_characteristic = hot_side_compressor_characteristic_2024
+        hot_side_compressor_characteristic[0] *= 1
+    elif year == 20242:
+        hot_side_compressor_characteristic = hot_side_compressor_characteristic_2024
+        hot_side_compressor_characteristic[0] *= 1
+    
+    return np.interp(mdot_hot * 1000 / rho_w,
+                        np.fliplr(hot_side_compressor_characteristic)[0],
+                        np.fliplr(hot_side_compressor_characteristic)[1]) * 1e5  # Pa
 
 def logmeanT(T1in, T1out, T2in, T2out):
     dt1 = (T2in - T1out)
@@ -304,6 +327,8 @@ class Heat_Exchanger():
 
         self.hydraulic_iteration_count = 0
 
+        self.is_group_C = False
+
 
     def set_conditions(self, Tin, Rfouling = [0, 0]):
         self.Tin = Tin
@@ -391,7 +416,8 @@ class Heat_Exchanger():
                 DP_hot += element.loss_coefficient() * 0.5 * rho_w * v_hot_tube ** 2
             
         v_hot_nozzle = mdot_hot / (rho_w * A_nozzle)
-        DP_hot += rho_w * v_hot_nozzle ** 2  # nozzle loss
+        if not self.is_group_C:
+            DP_hot += rho_w * v_hot_nozzle ** 2  # nozzle loss
 
         # COLD STREAM
         DP_cold = 0

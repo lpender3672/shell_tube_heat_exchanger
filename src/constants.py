@@ -295,17 +295,38 @@ num_threads = 1
 
 if __name__ == "__main__":
 
-    plt.plot(cold_side_compressor_characteristic_2024[0], cold_side_compressor_characteristic_2024[1], label = "2024 Cold side")
-    plt.plot(hot_side_compressor_characteristic_2024[0], hot_side_compressor_characteristic_2024[1], label = "2024 Hot side")
+    plt.rcParams["figure.figsize"] = (8, 6)
+    plt.rcParams["text.usetex"] = True
+    plt.rcParams["font.family"] = "serif"
+    plt.rcParams['figure.facecolor'] = 'white'
 
-    plt.plot(cold_side_compressor_characteristic_2023[0], cold_side_compressor_characteristic_2023[1], label = "2023 Cold side")
-    plt.plot(hot_side_compressor_characteristic_2023[0], hot_side_compressor_characteristic_2023[1], label = "2023 Hot side")
 
-    plt.plot(cold_side_compressor_characteristic_2022[0], cold_side_compressor_characteristic_2022[1], label = "2022 Cold side")
-    plt.plot(hot_side_compressor_characteristic_2022[0], hot_side_compressor_characteristic_2022[1], label = "2022 Hot side")
+    plt.plot(cold_side_compressor_characteristic_2024[0], cold_side_compressor_characteristic_2024[1], label = "2024 Cold side", color = "red")
+    plt.plot(hot_side_compressor_characteristic_2024[0], hot_side_compressor_characteristic_2024[1], label = "2024 Hot side", color = "blue")
+    
+    plt.fill_between(
+        cold_side_compressor_characteristic_2024[0],
+        0.95 * cold_side_compressor_characteristic_2024[1],
+        1.05 * cold_side_compressor_characteristic_2024[1],
+        alpha = 0.3,
+        color = "red"
+    )
+    plt.fill_between(
+        hot_side_compressor_characteristic_2024[0],
+        0.95 * hot_side_compressor_characteristic_2024[1],
+        1.05 * hot_side_compressor_characteristic_2024[1],
+        alpha = 0.3,
+        color = "blue"
+    )
 
-    plt.plot(cold_side_compressor_characteristic_2019[0], cold_side_compressor_characteristic_2019[1], label = "2019 Cold side")
-    plt.plot(hot_side_compressor_characteristic_2019[0], hot_side_compressor_characteristic_2019[1], label = "2019 Hot side")
+    #plt.plot(cold_side_compressor_characteristic_2023[0], cold_side_compressor_characteristic_2023[1], label = "2023 Cold side")
+    #plt.plot(hot_side_compressor_characteristic_2023[0], hot_side_compressor_characteristic_2023[1], label = "2023 Hot side")
+
+    #plt.plot(cold_side_compressor_characteristic_2022[0], cold_side_compressor_characteristic_2022[1], label = "2022 Cold side")
+    #plt.plot(hot_side_compressor_characteristic_2022[0], hot_side_compressor_characteristic_2022[1], label = "2022 Hot side")
+
+    #plt.plot(cold_side_compressor_characteristic_2019[0], cold_side_compressor_characteristic_2019[1], label = "2019 Cold side")
+    #plt.plot(hot_side_compressor_characteristic_2019[0], hot_side_compressor_characteristic_2019[1], label = "2019 Hot side")
 
     plt.xlabel("Mass flow rate (kg/s)")
     plt.ylabel("Pressure drop (Bar)")
